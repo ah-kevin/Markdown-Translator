@@ -58,11 +58,11 @@ This keeps the source document untouched while avoiding a custom preview webview
   - Set to `true` only when collecting diagnostics. It logs block collection, provider batching, fallback behavior, and final translation mapping to the `Markdown Translator` output channel.
 - `markdownTranslator.deeplFree.requestDelayMs`
   - Default: `5000`
-  - Increase this if DeepL Free returns rate-limit errors on long documents.
+  - Increase this if DeepL Free returns rate-limit errors on long documents. Rate limits fail fast by default; click translate again later to continue unfinished blocks.
 - `markdownTranslator.deeplFree.retryDelayMs`
-  - Default: `10000`
+  - Default: `0`
 - `markdownTranslator.deeplFree.maxBatchTexts`
-  - Default: `2`
+  - Default: `1`
 - `markdownTranslator.deeplFree.maxBatchCharacters`
   - Default: `400`
 

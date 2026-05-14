@@ -25,9 +25,9 @@ type DeepLResponse = {
 
 const defaultBaseUrl = 'https://www2.deepl.com/jsonrpc';
 const defaultMaxBatchCharacters = 400;
-const defaultMaxBatchTexts = 2;
-const defaultRetryDelayMs = 10000;
-const defaultMaxRetries = 2;
+const defaultMaxBatchTexts = 1;
+const defaultRetryDelayMs = 0;
+const defaultMaxRetries = 0;
 const defaultRequestDelayMs = 5000;
 
 export class DeepLFreeProvider {
@@ -93,8 +93,7 @@ export class DeepLFreeProvider {
         throw error;
       }
 
-      this.log?.(`DeepL free batch rate limited; waiting ${this.retryDelayMs}ms and splitting ${texts.length} texts`);
-      await sleep(this.retryDelayMs, request.abortSignal);
+      this.log?.(`DeepL free batch rate limited; splitting ${texts.length} texts`);
       const splitAt = Math.ceil(texts.length / 2);
       const left = texts.slice(0, splitAt);
       const right = texts.slice(splitAt);

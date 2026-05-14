@@ -191,10 +191,10 @@ async function translateOfficialPreview(
           providerId,
           deeplFree: {
             maxBatchCharacters: config.get<number>('deeplFree.maxBatchCharacters', 400),
-            maxBatchTexts: config.get<number>('deeplFree.maxBatchTexts', 2),
-            maxRetries: config.get<number>('deeplFree.maxRetries', 2),
+            maxBatchTexts: config.get<number>('deeplFree.maxBatchTexts', 1),
+            maxRetries: config.get<number>('deeplFree.maxRetries', 0),
             requestDelayMs: config.get<number>('deeplFree.requestDelayMs', 5000),
-            retryDelayMs: config.get<number>('deeplFree.retryDelayMs', 10000)
+            retryDelayMs: config.get<number>('deeplFree.retryDelayMs', 0)
           },
           log: debugLogging ? (message) => output.appendLine(`[provider#${runId}] ${message}`) : undefined,
           onBatchComplete: progressReporter.handleProviderProgress

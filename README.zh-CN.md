@@ -58,11 +58,11 @@
   - 仅在排查问题时设为 `true`。开启后会把 block 收集、provider 批处理、fallback 行为和最终译文映射写入 `Markdown Translator` Output。
 - `markdownTranslator.deeplFree.requestDelayMs`
   - 默认值：`5000`
-  - DeepL Free 翻译长文档出现限流时，优先调大这个值。
+  - DeepL Free 翻译长文档出现限流时，可调大这个值；遇到 429 默认快速停止，稍后再次点击会继续未完成部分。
 - `markdownTranslator.deeplFree.retryDelayMs`
-  - 默认值：`10000`
+  - 默认值：`0`
 - `markdownTranslator.deeplFree.maxBatchTexts`
-  - 默认值：`2`
+  - 默认值：`1`
 - `markdownTranslator.deeplFree.maxBatchCharacters`
   - 默认值：`400`
 

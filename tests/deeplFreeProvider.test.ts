@@ -75,7 +75,11 @@ describe('DeepLFreeProvider', () => {
         }
       }), { status: 200 });
     });
-    const provider = new DeepLFreeProvider({ fetch: fetchMock, requestDelayMs: 0 });
+    const provider = new DeepLFreeProvider({
+      fetch: fetchMock,
+      maxBatchTexts: 2,
+      requestDelayMs: 0
+    });
 
     const results = await provider.translate({
       sourceLanguage: 'en',
@@ -104,7 +108,7 @@ describe('DeepLFreeProvider', () => {
     })).rejects.toMatchObject({
       code: 'RATE_LIMIT'
     } satisfies Partial<TranslationProviderError>);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('retries per-text requests after a rate limit response', async () => {
@@ -119,7 +123,11 @@ describe('DeepLFreeProvider', () => {
         }
       }), { status: 200 });
     });
-    const provider = new DeepLFreeProvider({ fetch: fetchMock, retryDelayMs: 0 });
+    const provider = new DeepLFreeProvider({
+      fetch: fetchMock,
+      maxRetries: 1,
+      retryDelayMs: 0
+    });
 
     const results = await provider.translate({
       sourceLanguage: 'en',

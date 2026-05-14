@@ -71,7 +71,7 @@
         },
         "markdownTranslator.deeplFree.maxBatchTexts": {
           "type": "number",
-          "default": 2,
+          "default": 1,
           "minimum": 1,
           "maximum": 20,
           "description": "Maximum number of Markdown blocks sent in one DeepL Free request."
@@ -92,14 +92,14 @@
         },
         "markdownTranslator.deeplFree.retryDelayMs": {
           "type": "number",
-          "default": 10000,
+          "default": 0,
           "minimum": 0,
           "maximum": 120000,
           "description": "Delay before retrying a DeepL Free request after rate limiting."
         },
         "markdownTranslator.deeplFree.maxRetries": {
           "type": "number",
-          "default": 2,
+          "default": 0,
           "minimum": 0,
           "maximum": 10,
           "description": "Maximum retry attempts for a DeepL Free request after rate limiting."

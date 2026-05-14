@@ -45,6 +45,11 @@
           "type": "string",
           "default": "zh-CN",
           "description": "Target language for translation."
+        },
+        "markdownTranslator.debugLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detailed diagnostic logs for Markdown block collection, provider batching, and translation mapping."
         }
       }
     },

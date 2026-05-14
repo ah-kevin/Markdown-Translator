@@ -48,6 +48,9 @@ This keeps the source document untouched while avoiding a custom preview webview
   - Default: `auto`
 - `markdownTranslator.targetLanguage`
   - Default: `zh-CN`
+- `markdownTranslator.debugLogging`
+  - Default: `false`
+  - Set to `true` only when collecting diagnostics. It logs block collection, provider batching, fallback behavior, and final translation mapping to the `Markdown Translator` output channel.
 
 ## Development
 
@@ -95,6 +98,7 @@ Current scope:
 - Prevent concurrent translation runs for the same document.
 - Keep translation state bounded in memory and clear it when Markdown documents change or close.
 - Keep only current-session in-memory translation state.
+- Keep detailed diagnostic logging off by default; enable `markdownTranslator.debugLogging` when investigating incorrect or misaligned translations.
 - Keep Google Web domain and retry behavior internal for now.
 
 Next route:

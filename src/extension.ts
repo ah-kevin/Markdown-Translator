@@ -91,10 +91,15 @@ async function translateOfficialPreview(
     return;
   }
 
+  const config = vscode.workspace.getConfiguration('markdownTranslator', document.uri);
+  const debugLogging = config.get<boolean>('debugLogging', false);
   const blocks = collectTranslatableBlocks(document.getText());
   output.appendLine(`[translate#${runId}] document=${documentKey}`);
   output.appendLine(`[translate#${runId}] collected ${blocks.length} translatable block(s).`);
-  logBlocks(output, runId, blocks);
+  if (debugLogging) {
+    output.appendLine(`[translate#${runId}] debug logging enabled.`);
+    logBlocks(output, runId, blocks);
+  }
   if (blocks.length === 0) {
     await vscode.window.showInformationMessage('没有可翻译的 Markdown 段落。');
     return;
@@ -108,7 +113,6 @@ async function translateOfficialPreview(
       title: `翻译 ${blocks.length} 个 Markdown 段落`,
       cancellable: false
     }, async (progress) => {
-      const config = vscode.workspace.getConfiguration('markdownTranslator', document.uri);
       const sourceLanguage = config.get<string>('sourceLanguage', 'auto');
       const targetLanguage = config.get<string>('targetLanguage', 'zh-CN');
       output.appendLine(`[translate#${runId}] language ${sourceLanguage} -> ${targetLanguage}`);
@@ -136,7 +140,7 @@ async function translateOfficialPreview(
 
       const provider = new GoogleWebProvider({
         candidate: 'mobile',
-        log: (message) => output.appendLine(`[provider#${runId}] ${message}`),
+        log: debugLogging ? (message) => output.appendLine(`[provider#${runId}] ${message}`) : undefined,
         onBatchComplete: progressReporter.handleProviderProgress
       });
       const translations = await translateBlocks({
@@ -149,7 +153,9 @@ async function translateOfficialPreview(
       setOfficialPreviewTranslations(document.uri, translations);
       translationStates.set(documentKey, 'translated');
       output.appendLine(`[translate#${runId}] stored ${translations.length} translation(s).`);
-      logTranslations(output, runId, translations);
+      if (debugLogging) {
+        logTranslations(output, runId, translations);
+      }
       await vscode.commands.executeCommand('markdown.api.reloadPlugins');
       output.appendLine(`[translate#${runId}] refreshed official Markdown Preview in ${Date.now() - startedAt}ms.`);
     });
@@ -217,11 +223,8 @@ function logBlocks(
   runId: number,
   blocks: ReturnType<typeof collectTranslatableBlocks>
 ): void {
-  for (const block of blocks.slice(0, 50)) {
+  for (const block of blocks) {
     output.appendLine(`[translate#${runId}] block ${block.id} ${block.kind} chars=${block.text.length} text="${previewLogText(block.text)}"`);
-  }
-  if (blocks.length > 50) {
-    output.appendLine(`[translate#${runId}] block log truncated: ${blocks.length - 50} more block(s).`);
   }
 }
 
@@ -230,15 +233,11 @@ function logTranslations(
   runId: number,
   translations: Array<{ id: string; translatedText: string }>
 ): void {
-  for (const translation of translations.slice(0, 50)) {
+  for (const translation of translations) {
     output.appendLine(`[translate#${runId}] translation ${translation.id} chars=${translation.translatedText.length} text="${previewLogText(translation.translatedText)}"`);
-  }
-  if (translations.length > 50) {
-    output.appendLine(`[translate#${runId}] translation log truncated: ${translations.length - 50} more translation(s).`);
   }
 }
 
 function previewLogText(text: string): string {
-  const compact = text.replace(/\s+/g, ' ').trim();
-  return compact.length > 120 ? `${compact.slice(0, 117)}...` : compact;
+  return text.replace(/\s+/g, ' ').trim().replace(/"/g, '\\"');
 }

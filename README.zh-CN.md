@@ -48,6 +48,9 @@
   - 默认值：`auto`
 - `markdownTranslator.targetLanguage`
   - 默认值：`zh-CN`
+- `markdownTranslator.debugLogging`
+  - 默认值：`false`
+  - 仅在排查问题时设为 `true`。开启后会把 block 收集、provider 批处理、fallback 行为和最终译文映射写入 `Markdown Translator` Output。
 
 ## 开发
 
@@ -101,6 +104,7 @@ code --install-extension markdown-translator-0.0.1.vsix --force
 - 阻止同一文档的并发翻译任务。
 - 翻译状态保存在有上限的内存中，并在 Markdown 文档变更或关闭时清理。
 - 只保留当前 VSCode 会话内的内存翻译状态。
+- 详细诊断日志默认关闭；遇到漏翻译或错位时可开启 `markdownTranslator.debugLogging` 后复现并复制日志。
 - Google Web 域名和重试策略暂时保持内部实现，不开放配置。
 
 下一步路线：

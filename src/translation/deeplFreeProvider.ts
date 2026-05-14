@@ -5,8 +5,10 @@ type DeepLFreeProviderOptions = {
   baseUrl?: string;
   fetch?: (input: string | URL, init?: RequestInit) => Promise<Response>;
   log?: (message: string) => void;
-  maxBatchCharacters?: number;
   onBatchComplete?: (results: TranslateResult[], completed: number, total: number) => Promise<void> | void;
+  retryDelayMs?: number;
+  maxRetries?: number;
+  requestDelayMs?: number;
 };
 
 type DeepLTextResult = {
@@ -20,37 +22,69 @@ type DeepLResponse = {
 };
 
 const defaultBaseUrl = 'https://www2.deepl.com/jsonrpc';
-const defaultMaxBatchCharacters = 4500;
+const defaultRetryDelayMs = 1200;
+const defaultMaxRetries = 2;
+const defaultRequestDelayMs = 250;
 
 export class DeepLFreeProvider {
   private readonly baseUrl: string;
   private readonly fetchImpl: (input: string | URL, init?: RequestInit) => Promise<Response>;
   private readonly log?: (message: string) => void;
-  private readonly maxBatchCharacters: number;
   private readonly onBatchComplete?: (results: TranslateResult[], completed: number, total: number) => Promise<void> | void;
+  private readonly retryDelayMs: number;
+  private readonly maxRetries: number;
+  private readonly requestDelayMs: number;
 
   constructor(options: DeepLFreeProviderOptions = {}) {
     this.baseUrl = options.baseUrl ?? defaultBaseUrl;
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.log = options.log;
-    this.maxBatchCharacters = options.maxBatchCharacters ?? defaultMaxBatchCharacters;
     this.onBatchComplete = options.onBatchComplete;
+    this.retryDelayMs = options.retryDelayMs ?? defaultRetryDelayMs;
+    this.maxRetries = options.maxRetries ?? defaultMaxRetries;
+    this.requestDelayMs = options.requestDelayMs ?? defaultRequestDelayMs;
   }
 
   async translate(request: TranslateRequest): Promise<TranslateResult[]> {
-    const batches = createBatches(request.texts, this.maxBatchCharacters);
-    this.log?.(`DeepL free batch plan: ${request.texts.length} texts -> ${batches.length} request(s)`);
+    this.log?.(`DeepL free request plan: ${request.texts.length} texts -> ${request.texts.length} sequential request(s)`);
 
     const results: TranslateResult[] = [];
     let completed = 0;
-    for (const batch of batches) {
-      const batchResults = await this.translateBatch(batch, request);
+    for (const text of request.texts) {
+      const batchResults = await this.translateSingleWithRetry(text, request);
       results.push(...batchResults);
-      completed += batch.length;
+      completed += 1;
       await this.onBatchComplete?.(batchResults, completed, request.texts.length);
+      if (completed < request.texts.length && this.requestDelayMs > 0) {
+        await sleep(this.requestDelayMs);
+      }
     }
 
     return results;
+  }
+
+  private async translateSingleWithRetry(
+    text: TranslateText,
+    request: TranslateRequest
+  ): Promise<TranslateResult[]> {
+    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      try {
+        return await this.translateBatch([text], request);
+      } catch (error) {
+        if (!isRateLimitError(error) || attempt >= this.maxRetries) {
+          throw error;
+        }
+
+        const delayMs = this.retryDelayMs * (attempt + 1);
+        this.log?.(`DeepL free per-text rate limited; retrying in ${delayMs}ms`);
+        await sleep(delayMs);
+      }
+    }
+
+    throw new TranslationProviderError('DeepL Free translation is rate limited.', {
+      code: 'RATE_LIMIT',
+      candidate: 'mobile'
+    });
   }
 
   private async translateBatch(texts: TranslateText[], request: TranslateRequest): Promise<TranslateResult[]> {
@@ -63,10 +97,19 @@ export class DeepLFreeProvider {
       sourceLanguage: request.sourceLanguage,
       targetLanguage: request.targetLanguage
     });
-    this.log?.(`DeepL free batch request: ${texts.length} texts, ${JSON.stringify(texts.map((item) => item.text)).length} chars`);
+    this.log?.(`DeepL free request: ${texts.length} text(s), ${JSON.stringify(texts.map((item) => item.text)).length} chars`);
 
     const responseBody = await this.fetchText(body);
-    const translatedTexts = parseDeepLFreeTranslation(responseBody);
+    let translatedTexts: string[];
+    try {
+      translatedTexts = parseDeepLFreeTranslation(responseBody);
+    } catch (error) {
+      throw new TranslationProviderError('Failed to parse DeepL Free translation response.', {
+        code: 'PARSE',
+        candidate: 'mobile',
+        cause: error
+      });
+    }
     if (translatedTexts.length !== texts.length) {
       throw new TranslationProviderError('DeepL Free response count does not match request count.', {
         code: 'PARSE',
@@ -129,24 +172,43 @@ export function createDeepLRequestBody(options: {
   targetLanguage: string;
 }): string {
   const id = createRequestId();
+  const targetLanguage = normalizeTargetLanguage(options.targetLanguage);
+  const params: {
+    splitting: string;
+    lang: {
+      source_lang_user_selected: string;
+      target_lang: string;
+    };
+    texts: Array<{
+      text: string;
+      requestAlternatives: number;
+    }>;
+    timestamp: number;
+    commonJobParams?: {
+      regionalVariant: string;
+    };
+  } = {
+    splitting: 'newlines',
+    lang: {
+      source_lang_user_selected: normalizeSourceLanguage(options.sourceLanguage),
+      target_lang: normalizeDeepLTargetLanguage(targetLanguage)
+    },
+    texts: options.texts.map((text) => ({
+      text,
+      requestAlternatives: 3
+    })),
+    timestamp: createTimestamp(options.texts)
+  };
+  if (targetLanguage === 'ZH-HANS' || targetLanguage === 'ZH-HANT') {
+    params.commonJobParams = {
+      regionalVariant: targetLanguage
+    };
+  }
+
   const payload = {
     jsonrpc: '2.0',
     method: 'LMT_handle_texts',
-    params: {
-      splitting: 'newlines',
-      lang: {
-        source_lang_user_selected: normalizeSourceLanguage(options.sourceLanguage),
-        target_lang: normalizeTargetLanguage(options.targetLanguage)
-      },
-      texts: options.texts.map((text) => ({
-        text,
-        requestAlternatives: 0
-      })),
-      timestamp: createTimestamp(options.texts),
-      commonJobParams: {
-        mode: 'translate'
-      }
-    },
+    params,
     id
   };
 
@@ -177,38 +239,27 @@ export function parseDeepLFreeTranslation(body: string): string[] {
   });
 }
 
-function createBatches(texts: TranslateText[], maxBatchCharacters: number): TranslateText[][] {
-  const batches: TranslateText[][] = [];
-  let currentBatch: TranslateText[] = [];
-  let currentLength = 0;
+function isRateLimitError(error: unknown): boolean {
+  return error instanceof TranslationProviderError && error.code === 'RATE_LIMIT';
+}
 
-  for (const item of texts) {
-    const nextLength = currentLength + item.text.length;
-    if (currentBatch.length > 0 && nextLength > maxBatchCharacters) {
-      batches.push(currentBatch);
-      currentBatch = [];
-      currentLength = 0;
-    }
-
-    currentBatch.push(item);
-    currentLength += item.text.length;
-  }
-
-  if (currentBatch.length > 0) {
-    batches.push(currentBatch);
-  }
-
-  return batches;
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createRequestId(): number {
-  return Math.floor(Math.random() * 99999) + 100000;
+  return (Math.floor(Math.random() * 99999) + 100000) * 1000;
 }
 
 function createTimestamp(texts: string[]): number {
   const now = Date.now();
   const iCount = texts.join('').split('i').length - 1;
-  return iCount === 0 ? now : now + (iCount - (now % iCount));
+  if (iCount === 0) {
+    return now;
+  }
+
+  const interval = iCount + 1;
+  return now - (now % interval) + interval;
 }
 
 function normalizeSourceLanguage(language: string): string {
@@ -222,7 +273,7 @@ function normalizeSourceLanguage(language: string): string {
 function normalizeTargetLanguage(language: string): string {
   const normalized = language.toUpperCase().replace('_', '-');
   if (normalized === 'ZH-CN' || normalized === 'ZH-HANS') {
-    return 'ZH';
+    return 'ZH-HANS';
   }
   if (normalized === 'ZH-TW' || normalized === 'ZH-HANT') {
     return 'ZH-HANT';
@@ -231,4 +282,8 @@ function normalizeTargetLanguage(language: string): string {
     return 'EN-US';
   }
   return normalized;
+}
+
+function normalizeDeepLTargetLanguage(language: string): string {
+  return language === 'ZH-HANS' || language === 'ZH-HANT' ? 'ZH' : language;
 }

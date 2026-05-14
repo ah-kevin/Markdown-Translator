@@ -21,8 +21,11 @@ describe('DeepL Free provider request helpers', () => {
       source_lang_user_selected: 'auto',
       target_lang: 'ZH'
     });
+    expect(payload.params.commonJobParams).toEqual({
+      regionalVariant: 'ZH-HANS'
+    });
     expect(payload.params.texts).toEqual([
-      { text: 'Night gathers', requestAlternatives: 0 }
+      { text: 'Night gathers', requestAlternatives: 3 }
     ]);
   });
 
@@ -42,15 +45,15 @@ describe('DeepL Free provider request helpers', () => {
 
 describe('DeepLFreeProvider', () => {
   it('translates multiple texts and maps responses by id', async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-      result: {
-        texts: [
-          { text: '夜幕降临' },
-          { text: '守望开始' }
-        ]
-      }
-    }), { status: 200 }));
-    const provider = new DeepLFreeProvider({ fetch: fetchMock });
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body).replace('"method" : "', '"method":"').replace('"method": "', '"method":"'));
+      return new Response(JSON.stringify({
+        result: {
+          texts: [{ text: body.params.texts[0].text === 'Night gathers' ? '夜幕降临' : '守望开始' }]
+        }
+      }), { status: 200 });
+    });
+    const provider = new DeepLFreeProvider({ fetch: fetchMock, requestDelayMs: 0 });
 
     const results = await provider.translate({
       sourceLanguage: 'en',
@@ -65,12 +68,12 @@ describe('DeepLFreeProvider', () => {
       { id: 'p1', translatedText: '夜幕降临' },
       { id: 'p2', translatedText: '守望开始' }
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('classifies 429 responses as rate limit errors', async () => {
     const fetchMock = vi.fn(async () => new Response('too many requests', { status: 429 }));
-    const provider = new DeepLFreeProvider({ fetch: fetchMock });
+    const provider = new DeepLFreeProvider({ fetch: fetchMock, retryDelayMs: 0 });
 
     await expect(provider.translate({
       sourceLanguage: 'en',
@@ -79,12 +82,37 @@ describe('DeepLFreeProvider', () => {
     })).rejects.toMatchObject({
       code: 'RATE_LIMIT'
     } satisfies Partial<TranslationProviderError>);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it('rejects responses whose translated text count does not match', async () => {
+  it('retries per-text requests after a rate limit response', async () => {
+    const fetchMock = vi.fn(async () => {
+      if (fetchMock.mock.calls.length === 1) {
+        return new Response('too many requests', { status: 429 });
+      }
+
+      return new Response(JSON.stringify({
+        result: {
+          texts: [{ text: '夜幕降临' }]
+        }
+      }), { status: 200 });
+    });
+    const provider = new DeepLFreeProvider({ fetch: fetchMock, retryDelayMs: 0 });
+
+    const results = await provider.translate({
+      sourceLanguage: 'en',
+      targetLanguage: 'zh-CN',
+      texts: [{ id: 'p1', text: 'Night gathers' }]
+    });
+
+    expect(results).toEqual([{ id: 'p1', translatedText: '夜幕降临' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects malformed translated text responses', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       result: {
-        texts: [{ text: '夜幕降临' }]
+        texts: [{}]
       }
     }), { status: 200 }));
     const provider = new DeepLFreeProvider({ fetch: fetchMock });
@@ -92,10 +120,7 @@ describe('DeepLFreeProvider', () => {
     await expect(provider.translate({
       sourceLanguage: 'en',
       targetLanguage: 'zh-CN',
-      texts: [
-        { id: 'p1', text: 'Night gathers' },
-        { id: 'p2', text: 'My watch begins' }
-      ]
+      texts: [{ id: 'p1', text: 'Night gathers' }]
     })).rejects.toMatchObject({
       code: 'PARSE'
     } satisfies Partial<TranslationProviderError>);

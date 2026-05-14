@@ -166,10 +166,10 @@ async function translateOfficialPreview(
       const provider = createTranslationProvider({
         providerId,
         deeplFree: {
-          maxBatchCharacters: config.get<number>('deeplFree.maxBatchCharacters', 900),
-          maxBatchTexts: config.get<number>('deeplFree.maxBatchTexts', 4),
+          maxBatchCharacters: config.get<number>('deeplFree.maxBatchCharacters', 400),
+          maxBatchTexts: config.get<number>('deeplFree.maxBatchTexts', 2),
           maxRetries: config.get<number>('deeplFree.maxRetries', 2),
-          requestDelayMs: config.get<number>('deeplFree.requestDelayMs', 2000),
+          requestDelayMs: config.get<number>('deeplFree.requestDelayMs', 5000),
           retryDelayMs: config.get<number>('deeplFree.retryDelayMs', 10000)
         },
         log: debugLogging ? (message) => output.appendLine(`[provider#${runId}] ${message}`) : undefined,

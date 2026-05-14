@@ -71,21 +71,21 @@
         },
         "markdownTranslator.deeplFree.maxBatchTexts": {
           "type": "number",
-          "default": 4,
+          "default": 2,
           "minimum": 1,
           "maximum": 20,
           "description": "Maximum number of Markdown blocks sent in one DeepL Free request."
         },
         "markdownTranslator.deeplFree.maxBatchCharacters": {
           "type": "number",
-          "default": 900,
+          "default": 400,
           "minimum": 100,
           "maximum": 5000,
           "description": "Maximum source characters sent in one DeepL Free request."
         },
         "markdownTranslator.deeplFree.requestDelayMs": {
           "type": "number",
-          "default": 2000,
+          "default": 5000,
           "minimum": 0,
           "maximum": 30000,
           "description": "Delay between DeepL Free requests in milliseconds."

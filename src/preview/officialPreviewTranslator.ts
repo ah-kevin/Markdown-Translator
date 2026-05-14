@@ -21,6 +21,10 @@ export function clearOfficialPreviewTranslations(resource: ResourceLike): void {
   translationsByResource.delete(resourceKey(resource));
 }
 
+export function clearAllOfficialPreviewTranslations(): void {
+  translationsByResource.clear();
+}
+
 export function getOfficialPreviewTranslationResourceCount(): number {
   return translationsByResource.size;
 }

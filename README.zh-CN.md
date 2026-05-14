@@ -9,7 +9,7 @@
 - 增强 VSCode 内置 Markdown Preview，不修改源 `.md` 文件。
 - 在官方 Markdown Preview 编辑器标题栏增加翻译按钮。
 - 在每个原文块下方插入译文，使用引用样式展示。
-- 使用无需 API Key 的 Google Web 翻译。
+- 支持无需 API Key 的 Google Web 和 DeepL Free 翻译。
 - 支持配置源语言和目标语言。
 
 ## 技术路线
@@ -20,7 +20,7 @@
 2. `Markdown Translator: Translate Preview` 命令显示在预览编辑器标题栏。
 3. 命令解析源 Markdown 文档，包括从预览标题栏按钮触发时的 `webview-panel:` 场景。
 4. 扩展宿主使用 `markdown-it` 收集可翻译的 Markdown block。
-5. Google Web provider 通过 mobile `/m` 端点翻译这些 block，并在可行时把多个 block 合并成一次请求。
+5. 当前选中的 provider 负责翻译这些 block。Google Web 使用 mobile `/m` 端点；DeepL Free 使用 DeepL web JSON-RPC 端点。
 6. 结果按文档 URI 缓存在当前会话的内存中。
 7. `markdown.markdownItPlugins` 贡献点在官方 Markdown 渲染过程中注入译文 DOM。
 8. 每个完成的批次都会更新内存中的翻译结果，并调用 `markdown.api.reloadPlugins`，因此长文档可以渐进渲染译文。
@@ -41,6 +41,8 @@
   - 翻译当前 Markdown 文档并刷新官方 Markdown Preview。
 - `Markdown Translator: Clear Preview Translations`
   - 清除当前 Markdown Preview 的内存译文，并刷新官方预览。
+- `Markdown Translator: Select Translation Provider`
+  - 在 `Google Web` 和 `DeepL Free` 之间切换，并清除当前内存译文。
 
 ## 配置
 
@@ -48,6 +50,9 @@
   - 默认值：`auto`
 - `markdownTranslator.targetLanguage`
   - 默认值：`zh-CN`
+- `markdownTranslator.provider`
+  - 默认值：`googleWeb`
+  - 可选值：`googleWeb`、`deeplFree`
 - `markdownTranslator.debugLogging`
   - 默认值：`false`
   - 仅在排查问题时设为 `true`。开启后会把 block 收集、provider 批处理、fallback 行为和最终译文映射写入 `Markdown Translator` Output。
@@ -99,7 +104,9 @@ code --install-extension markdown-translator-0.0.1.vsix --force
 
 - 翻译标题、段落、列表项和引用块。
 - 跳过 fenced code block、行内代码、公式、YAML front matter、HTML block 和表格。
+- 可通过命令面板在 Google Web 与 DeepL Free 之间切换。
 - 使用稳定 marker 批量请求 Google Web mobile 翻译，批次完成后渐进渲染；如果批量结果无法安全拆分，则回退到逐块请求。
+- 通过 DeepL web JSON-RPC 端点批量请求 DeepL Free 翻译。
 - 翻译时用占位符保护行内代码，翻译完成后恢复。
 - 阻止同一文档的并发翻译任务。
 - 翻译状态保存在有上限的内存中，并在 Markdown 文档变更或关闭时清理。

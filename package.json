@@ -17,7 +17,8 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
-    "onCommand:markdownTranslator.translatePreview"
+    "onCommand:markdownTranslator.translatePreview",
+    "onCommand:markdownTranslator.selectProvider"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -31,6 +32,10 @@
         "command": "markdownTranslator.clearPreviewTranslations",
         "title": "Markdown Translator: Clear Preview Translations",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "markdownTranslator.selectProvider",
+        "title": "Markdown Translator: Select Translation Provider"
       }
     ],
     "configuration": {
@@ -45,6 +50,19 @@
           "type": "string",
           "default": "zh-CN",
           "description": "Target language for translation."
+        },
+        "markdownTranslator.provider": {
+          "type": "string",
+          "enum": [
+            "googleWeb",
+            "deeplFree"
+          ],
+          "enumDescriptions": [
+            "Google Web translation through the mobile web endpoint.",
+            "DeepL Free translation through the DeepL web JSON-RPC endpoint."
+          ],
+          "default": "googleWeb",
+          "description": "Translation provider used by Markdown Translator."
         },
         "markdownTranslator.debugLogging": {
           "type": "boolean",

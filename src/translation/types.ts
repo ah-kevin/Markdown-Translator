@@ -20,6 +20,13 @@ export interface TranslationProvider {
   translate(request: TranslateRequest): Promise<TranslateResult[]>;
 }
 
+export type TranslationProviderId = 'googleWeb' | 'deeplFree';
+
+export type TranslationProviderMetadata = {
+  id: TranslationProviderId;
+  label: string;
+};
+
 export type TranslateBlocksOptions = {
   provider: TranslationProvider;
   sourceLanguage: string;

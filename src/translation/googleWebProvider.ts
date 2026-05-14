@@ -1,20 +1,7 @@
+import { TranslateRequest, TranslateResult, TranslateText } from './types';
+
 export type TranslationCandidate = 'mobile' | 'rpc';
 
-export type TranslateText = {
-  id: string;
-  text: string;
-};
-
-export type TranslateRequest = {
-  sourceLanguage: string;
-  targetLanguage: string;
-  texts: TranslateText[];
-};
-
-export type TranslateResult = {
-  id: string;
-  translatedText: string;
-};
 
 export type TranslationProviderErrorCode =
   | 'RATE_LIMIT'

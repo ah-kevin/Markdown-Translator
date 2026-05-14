@@ -2,12 +2,19 @@ import * as vscode from 'vscode';
 import MarkdownIt from 'markdown-it';
 import { collectTranslatableBlocks } from './markdown/blockCollector';
 import {
+  clearAllOfficialPreviewTranslations,
   clearOfficialPreviewTranslations,
   extendMarkdownItWithTranslations,
   setOfficialPreviewTranslations
 } from './preview/officialPreviewTranslator';
 import { isOpenableMarkdownResource } from './preview/resource';
-import { GoogleWebProvider, TranslationProviderError } from './translation/googleWebProvider';
+import {
+  createTranslationProvider,
+  describeProviderError,
+  getProviderLabel,
+  normalizeProviderId,
+  translationProviders
+} from './translation/providerFactory';
 import { getTranslateAction, TranslationState } from './translation/state';
 import { createProgressReporter, translateBlocks } from './translation/translationOrchestrator';
 
@@ -38,6 +45,21 @@ export function activate(context: vscode.ExtensionContext): MarkdownTranslatorEx
     }),
     vscode.commands.registerCommand('markdownTranslator.clearPreviewTranslations', async (resource?: vscode.Uri) => {
       await clearPreviewTranslations(resource, output);
+    }),
+    vscode.commands.registerCommand('markdownTranslator.selectProvider', async () => {
+      await selectTranslationProvider(output);
+    }),
+    vscode.workspace.onDidChangeConfiguration(async (event) => {
+      if (
+        event.affectsConfiguration('markdownTranslator.provider')
+        || event.affectsConfiguration('markdownTranslator.sourceLanguage')
+        || event.affectsConfiguration('markdownTranslator.targetLanguage')
+      ) {
+        clearAllOfficialPreviewTranslations();
+        translationStates.clear();
+        await vscode.commands.executeCommand('markdown.api.reloadPlugins');
+        output.appendLine('[config] cleared translations after Markdown Translator configuration changed.');
+      }
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.languageId === 'markdown') {
@@ -93,8 +115,11 @@ async function translateOfficialPreview(
 
   const config = vscode.workspace.getConfiguration('markdownTranslator', document.uri);
   const debugLogging = config.get<boolean>('debugLogging', false);
+  const providerId = normalizeProviderId(config.get<string>('provider', 'googleWeb'));
+  const providerLabel = getProviderLabel(providerId);
   const blocks = collectTranslatableBlocks(document.getText());
   output.appendLine(`[translate#${runId}] document=${documentKey}`);
+  output.appendLine(`[translate#${runId}] provider=${providerId} (${providerLabel})`);
   output.appendLine(`[translate#${runId}] collected ${blocks.length} translatable block(s).`);
   if (debugLogging) {
     output.appendLine(`[translate#${runId}] debug logging enabled.`);
@@ -110,7 +135,7 @@ async function translateOfficialPreview(
   try {
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
-      title: `翻译 ${blocks.length} 个 Markdown 段落`,
+      title: `${providerLabel}: 翻译 ${blocks.length} 个 Markdown 段落`,
       cancellable: false
     }, async (progress) => {
       const sourceLanguage = config.get<string>('sourceLanguage', 'auto');
@@ -138,8 +163,8 @@ async function translateOfficialPreview(
         }
       });
 
-      const provider = new GoogleWebProvider({
-        candidate: 'mobile',
+      const provider = createTranslationProvider({
+        providerId,
         log: debugLogging ? (message) => output.appendLine(`[provider#${runId}] ${message}`) : undefined,
         onBatchComplete: progressReporter.handleProviderProgress
       });
@@ -160,13 +185,47 @@ async function translateOfficialPreview(
       output.appendLine(`[translate#${runId}] refreshed official Markdown Preview in ${Date.now() - startedAt}ms.`);
     });
   } catch (error) {
-    const message = describeTranslationError(error);
+    const config = document
+      ? vscode.workspace.getConfiguration('markdownTranslator', document.uri)
+      : vscode.workspace.getConfiguration('markdownTranslator');
+    const providerId = normalizeProviderId(config.get<string>('provider', 'googleWeb'));
+    const message = describeProviderError(error, getProviderLabel(providerId));
     translationStates.set(documentKey, 'failed');
     output.appendLine(`[translate#${runId}] failed: ${message}`);
     throw new Error(message);
   } finally {
     activeTranslations.delete(documentKey);
   }
+}
+
+async function selectTranslationProvider(output: vscode.OutputChannel): Promise<void> {
+  const config = vscode.workspace.getConfiguration('markdownTranslator');
+  const currentProviderId = normalizeProviderId(config.get<string>('provider', 'googleWeb'));
+  const selected = await vscode.window.showQuickPick(
+    translationProviders.map((provider) => ({
+      label: provider.label,
+      description: provider.id === currentProviderId ? '当前' : undefined,
+      providerId: provider.id
+    })),
+    {
+      placeHolder: '选择 Markdown Translator 翻译源'
+    }
+  );
+
+  if (!selected) {
+    return;
+  }
+
+  if (selected.providerId === currentProviderId) {
+    return;
+  }
+
+  await config.update('provider', selected.providerId, vscode.ConfigurationTarget.Global);
+  clearAllOfficialPreviewTranslations();
+  translationStates.clear();
+  await vscode.commands.executeCommand('markdown.api.reloadPlugins');
+  output.appendLine(`[config] provider changed to ${selected.providerId}; cleared current translations.`);
+  await vscode.window.showInformationMessage(`Markdown Translator: 已切换到 ${selected.label}`);
 }
 
 async function resolveMarkdownDocument(resource: vscode.Uri | undefined): Promise<vscode.TextDocument | undefined> {
@@ -199,23 +258,6 @@ async function clearPreviewTranslations(
   translationStates.delete(document.uri.toString());
   await vscode.commands.executeCommand('markdown.api.reloadPlugins');
   output.appendLine(`[clear] cleared translations for ${document.uri.toString()}`);
-}
-
-function describeTranslationError(error: unknown): string {
-  if (error instanceof TranslationProviderError) {
-    if (error.code === 'RATE_LIMIT') {
-      return 'Google Web 请求过快或被限流，请稍后再试。';
-    }
-    if (error.code === 'NETWORK') {
-      return 'Google Web 请求失败，请检查网络连接。';
-    }
-    if (error.code === 'PARSE') {
-      return 'Google Web 返回结构无法解析，可能是页面结构变化。';
-    }
-    return `Google Web 返回 HTTP ${error.status ?? '错误'}。`;
-  }
-
-  return error instanceof Error ? error.message : '翻译失败';
 }
 
 function logBlocks(

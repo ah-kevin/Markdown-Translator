@@ -56,6 +56,15 @@ This keeps the source document untouched while avoiding a custom preview webview
 - `markdownTranslator.debugLogging`
   - Default: `false`
   - Set to `true` only when collecting diagnostics. It logs block collection, provider batching, fallback behavior, and final translation mapping to the `Markdown Translator` output channel.
+- `markdownTranslator.deeplFree.requestDelayMs`
+  - Default: `2000`
+  - Increase this if DeepL Free returns rate-limit errors on long documents.
+- `markdownTranslator.deeplFree.retryDelayMs`
+  - Default: `10000`
+- `markdownTranslator.deeplFree.maxBatchTexts`
+  - Default: `4`
+- `markdownTranslator.deeplFree.maxBatchCharacters`
+  - Default: `900`
 
 ## Development
 
@@ -100,7 +109,7 @@ Current scope:
 - Skip fenced code blocks, inline code, formulas, YAML front matter, HTML blocks, and tables.
 - Switch between Google Web and DeepL Free from the command palette.
 - Batch multiple Google Web mobile translations with stable markers, progressively render completed batches, and fall back to per-block requests if a batch result cannot be split safely.
-- Batch multiple DeepL Free translations through the DeepL web JSON-RPC endpoint.
+- Send DeepL Free translations in small batches with configurable delays and retry backoff.
 - Protect inline code with placeholders during translation and restore it after translation.
 - Prevent concurrent translation runs for the same document.
 - Keep translation state bounded in memory and clear it when Markdown documents change or close.

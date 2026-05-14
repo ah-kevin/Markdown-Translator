@@ -68,6 +68,41 @@
           "type": "boolean",
           "default": false,
           "description": "Enable detailed diagnostic logs for Markdown block collection, provider batching, and translation mapping."
+        },
+        "markdownTranslator.deeplFree.maxBatchTexts": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum number of Markdown blocks sent in one DeepL Free request."
+        },
+        "markdownTranslator.deeplFree.maxBatchCharacters": {
+          "type": "number",
+          "default": 900,
+          "minimum": 100,
+          "maximum": 5000,
+          "description": "Maximum source characters sent in one DeepL Free request."
+        },
+        "markdownTranslator.deeplFree.requestDelayMs": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 0,
+          "maximum": 30000,
+          "description": "Delay between DeepL Free requests in milliseconds."
+        },
+        "markdownTranslator.deeplFree.retryDelayMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 0,
+          "maximum": 120000,
+          "description": "Delay before retrying a DeepL Free request after rate limiting."
+        },
+        "markdownTranslator.deeplFree.maxRetries": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Maximum retry attempts for a DeepL Free request after rate limiting."
         }
       }
     },

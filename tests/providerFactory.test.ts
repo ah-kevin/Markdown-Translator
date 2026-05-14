@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createTranslationProvider,
   getProviderLabel,
   normalizeProviderId,
   translationProviders
@@ -19,5 +20,20 @@ describe('provider factory metadata', () => {
     ]);
     expect(getProviderLabel('googleWeb')).toBe('Google Web');
     expect(getProviderLabel('deeplFree')).toBe('DeepL Free');
+  });
+
+  it('creates DeepL Free provider with tuning options', () => {
+    const provider = createTranslationProvider({
+      providerId: 'deeplFree',
+      deeplFree: {
+        maxBatchCharacters: 300,
+        maxBatchTexts: 2,
+        maxRetries: 1,
+        requestDelayMs: 10,
+        retryDelayMs: 20
+      }
+    });
+
+    expect(provider).toBeTruthy();
   });
 });

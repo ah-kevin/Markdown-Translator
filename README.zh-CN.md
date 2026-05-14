@@ -56,6 +56,15 @@
 - `markdownTranslator.debugLogging`
   - 默认值：`false`
   - 仅在排查问题时设为 `true`。开启后会把 block 收集、provider 批处理、fallback 行为和最终译文映射写入 `Markdown Translator` Output。
+- `markdownTranslator.deeplFree.requestDelayMs`
+  - 默认值：`2000`
+  - DeepL Free 翻译长文档出现限流时，优先调大这个值。
+- `markdownTranslator.deeplFree.retryDelayMs`
+  - 默认值：`10000`
+- `markdownTranslator.deeplFree.maxBatchTexts`
+  - 默认值：`4`
+- `markdownTranslator.deeplFree.maxBatchCharacters`
+  - 默认值：`900`
 
 ## 开发
 
@@ -106,7 +115,7 @@ code --install-extension markdown-translator-0.0.1.vsix --force
 - 跳过 fenced code block、行内代码、公式、YAML front matter、HTML block 和表格。
 - 可通过命令面板在 Google Web 与 DeepL Free 之间切换。
 - 使用稳定 marker 批量请求 Google Web mobile 翻译，批次完成后渐进渲染；如果批量结果无法安全拆分，则回退到逐块请求。
-- 通过 DeepL web JSON-RPC 端点批量请求 DeepL Free 翻译。
+- 通过 DeepL web JSON-RPC 端点小批量请求 DeepL Free 翻译，并支持配置请求间隔与限流重试间隔。
 - 翻译时用占位符保护行内代码，翻译完成后恢复。
 - 阻止同一文档的并发翻译任务。
 - 翻译状态保存在有上限的内存中，并在 Markdown 文档变更或关闭时清理。

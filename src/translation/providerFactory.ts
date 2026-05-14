@@ -14,6 +14,13 @@ export const translationProviders: TranslationProviderMetadata[] = [
 
 type ProviderFactoryOptions = {
   providerId: string;
+  deeplFree?: {
+    maxBatchCharacters?: number;
+    maxBatchTexts?: number;
+    maxRetries?: number;
+    requestDelayMs?: number;
+    retryDelayMs?: number;
+  };
   log?: (message: string) => void;
   onBatchComplete?: (results: TranslateResult[], completed: number, total: number) => Promise<void> | void;
 };
@@ -31,6 +38,11 @@ export function createTranslationProvider(options: ProviderFactoryOptions): Tran
 
   if (providerId === 'deeplFree') {
     return new DeepLFreeProvider({
+      maxBatchCharacters: options.deeplFree?.maxBatchCharacters,
+      maxBatchTexts: options.deeplFree?.maxBatchTexts,
+      maxRetries: options.deeplFree?.maxRetries,
+      requestDelayMs: options.deeplFree?.requestDelayMs,
+      retryDelayMs: options.deeplFree?.retryDelayMs,
       log: options.log,
       onBatchComplete: options.onBatchComplete
     });

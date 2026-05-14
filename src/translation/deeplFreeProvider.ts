@@ -26,9 +26,9 @@ type DeepLResponse = {
 const defaultBaseUrl = 'https://www2.deepl.com/jsonrpc';
 const defaultMaxBatchCharacters = 900;
 const defaultMaxBatchTexts = 4;
-const defaultRetryDelayMs = 1200;
+const defaultRetryDelayMs = 10000;
 const defaultMaxRetries = 2;
-const defaultRequestDelayMs = 800;
+const defaultRequestDelayMs = 2000;
 
 export class DeepLFreeProvider {
   private readonly baseUrl: string;

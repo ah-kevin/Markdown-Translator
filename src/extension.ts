@@ -136,62 +136,78 @@ async function translateOfficialPreview(
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
       title: `${providerLabel}: 翻译 ${blocks.length} 个 Markdown 段落`,
-      cancellable: false
-    }, async (progress) => {
+      cancellable: true
+    }, async (progress, token) => {
+      const abortController = new AbortController();
+      const cancellation = token.onCancellationRequested(() => {
+        output.appendLine(`[translate#${runId}] cancellation requested.`);
+        abortController.abort();
+      });
       const sourceLanguage = config.get<string>('sourceLanguage', 'auto');
       const targetLanguage = config.get<string>('targetLanguage', 'zh-CN');
-      output.appendLine(`[translate#${runId}] language ${sourceLanguage} -> ${targetLanguage}`);
-      let lastCompleted = 0;
-      let lastPreviewRefreshAt = 0;
-      const progressReporter = createProgressReporter(blocks, async (batchProgress) => {
-        setOfficialPreviewTranslations(document.uri, batchProgress.translations);
-        output.appendLine(`[translate#${runId}] progressive render ${batchProgress.completed}/${batchProgress.total} unique text(s).`);
-        progress.report({
-          increment: batchProgress.total > 0
-            ? ((batchProgress.completed - lastCompleted) / batchProgress.total) * 100
-            : 0,
-          message: `${batchProgress.completed}/${batchProgress.total}`
+      try {
+        output.appendLine(`[translate#${runId}] language ${sourceLanguage} -> ${targetLanguage}`);
+        let lastCompleted = 0;
+        let lastPreviewRefreshAt = 0;
+        const progressReporter = createProgressReporter(blocks, async (batchProgress) => {
+          setOfficialPreviewTranslations(document.uri, batchProgress.translations);
+          output.appendLine(`[translate#${runId}] progressive render ${batchProgress.completed}/${batchProgress.total} unique text(s).`);
+          progress.report({
+            increment: batchProgress.total > 0
+              ? ((batchProgress.completed - lastCompleted) / batchProgress.total) * 100
+              : 0,
+            message: `${batchProgress.completed}/${batchProgress.total}`
+          });
+          lastCompleted = batchProgress.completed;
+          const now = Date.now();
+          if (
+            batchProgress.completed === batchProgress.total
+            || now - lastPreviewRefreshAt >= progressiveRefreshIntervalMs
+          ) {
+            lastPreviewRefreshAt = now;
+            await vscode.commands.executeCommand('markdown.api.reloadPlugins');
+          }
         });
-        lastCompleted = batchProgress.completed;
-        const now = Date.now();
-        if (
-          batchProgress.completed === batchProgress.total
-          || now - lastPreviewRefreshAt >= progressiveRefreshIntervalMs
-        ) {
-          lastPreviewRefreshAt = now;
-          await vscode.commands.executeCommand('markdown.api.reloadPlugins');
+
+        const provider = createTranslationProvider({
+          providerId,
+          deeplFree: {
+            maxBatchCharacters: config.get<number>('deeplFree.maxBatchCharacters', 400),
+            maxBatchTexts: config.get<number>('deeplFree.maxBatchTexts', 2),
+            maxRetries: config.get<number>('deeplFree.maxRetries', 2),
+            requestDelayMs: config.get<number>('deeplFree.requestDelayMs', 5000),
+            retryDelayMs: config.get<number>('deeplFree.retryDelayMs', 10000)
+          },
+          log: debugLogging ? (message) => output.appendLine(`[provider#${runId}] ${message}`) : undefined,
+          onBatchComplete: progressReporter.handleProviderProgress
+        });
+        const translations = await translateBlocks({
+          abortSignal: abortController.signal,
+          provider,
+          sourceLanguage,
+          targetLanguage,
+          blocks
+        });
+
+        setOfficialPreviewTranslations(document.uri, translations);
+        translationStates.set(documentKey, 'translated');
+        output.appendLine(`[translate#${runId}] stored ${translations.length} translation(s).`);
+        if (debugLogging) {
+          logTranslations(output, runId, translations);
         }
-      });
-
-      const provider = createTranslationProvider({
-        providerId,
-        deeplFree: {
-          maxBatchCharacters: config.get<number>('deeplFree.maxBatchCharacters', 400),
-          maxBatchTexts: config.get<number>('deeplFree.maxBatchTexts', 2),
-          maxRetries: config.get<number>('deeplFree.maxRetries', 2),
-          requestDelayMs: config.get<number>('deeplFree.requestDelayMs', 5000),
-          retryDelayMs: config.get<number>('deeplFree.retryDelayMs', 10000)
-        },
-        log: debugLogging ? (message) => output.appendLine(`[provider#${runId}] ${message}`) : undefined,
-        onBatchComplete: progressReporter.handleProviderProgress
-      });
-      const translations = await translateBlocks({
-        provider,
-        sourceLanguage,
-        targetLanguage,
-        blocks
-      });
-
-      setOfficialPreviewTranslations(document.uri, translations);
-      translationStates.set(documentKey, 'translated');
-      output.appendLine(`[translate#${runId}] stored ${translations.length} translation(s).`);
-      if (debugLogging) {
-        logTranslations(output, runId, translations);
+        await vscode.commands.executeCommand('markdown.api.reloadPlugins');
+        output.appendLine(`[translate#${runId}] refreshed official Markdown Preview in ${Date.now() - startedAt}ms.`);
+      } finally {
+        cancellation.dispose();
       }
-      await vscode.commands.executeCommand('markdown.api.reloadPlugins');
-      output.appendLine(`[translate#${runId}] refreshed official Markdown Preview in ${Date.now() - startedAt}ms.`);
     });
   } catch (error) {
+    if (isCancellationError(error)) {
+      translationStates.set(documentKey, 'failed');
+      output.appendLine(`[translate#${runId}] cancelled after ${Date.now() - startedAt}ms.`);
+      await vscode.window.showInformationMessage('Markdown Translator: 翻译已取消，已保留当前已完成的译文。');
+      return;
+    }
     const config = document
       ? vscode.workspace.getConfiguration('markdownTranslator', document.uri)
       : vscode.workspace.getConfiguration('markdownTranslator');
@@ -289,4 +305,8 @@ function logTranslations(
 
 function previewLogText(text: string): string {
   return text.replace(/\s+/g, ' ').trim().replace(/"/g, '\\"');
+}
+
+function isCancellationError(error: unknown): boolean {
+  return error instanceof Error && error.message === 'Translation cancelled.';
 }

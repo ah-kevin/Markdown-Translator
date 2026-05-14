@@ -54,6 +54,7 @@ export class DeepLFreeProvider {
   }
 
   async translate(request: TranslateRequest): Promise<TranslateResult[]> {
+    throwIfAborted(request.abortSignal);
     const batches = createBatches(request.texts, {
       maxBatchCharacters: this.maxBatchCharacters,
       maxBatchTexts: this.maxBatchTexts
@@ -63,12 +64,13 @@ export class DeepLFreeProvider {
     const results: TranslateResult[] = [];
     let completed = 0;
     for (const batch of batches) {
+      throwIfAborted(request.abortSignal);
       const batchResults = await this.translateBatchWithFallback(batch, request);
       results.push(...batchResults);
       completed += batch.length;
       await this.onBatchComplete?.(batchResults, completed, request.texts.length);
       if (completed < request.texts.length && this.requestDelayMs > 0) {
-        await sleep(this.requestDelayMs);
+        await sleep(this.requestDelayMs, request.abortSignal);
       }
     }
 
@@ -80,6 +82,7 @@ export class DeepLFreeProvider {
     request: TranslateRequest
   ): Promise<TranslateResult[]> {
     if (texts.length === 1) {
+      throwIfAborted(request.abortSignal);
       return this.translateSingleWithRetry(texts[0], request);
     }
 
@@ -91,7 +94,7 @@ export class DeepLFreeProvider {
       }
 
       this.log?.(`DeepL free batch rate limited; waiting ${this.retryDelayMs}ms and splitting ${texts.length} texts`);
-      await sleep(this.retryDelayMs);
+      await sleep(this.retryDelayMs, request.abortSignal);
       const splitAt = Math.ceil(texts.length / 2);
       const left = texts.slice(0, splitAt);
       const right = texts.slice(splitAt);
@@ -107,6 +110,7 @@ export class DeepLFreeProvider {
     request: TranslateRequest
   ): Promise<TranslateResult[]> {
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      throwIfAborted(request.abortSignal);
       try {
         return await this.translateBatch([text], request);
       } catch (error) {
@@ -116,7 +120,7 @@ export class DeepLFreeProvider {
 
         const delayMs = this.retryDelayMs * (attempt + 1);
         this.log?.(`DeepL free per-text rate limited; retrying in ${delayMs}ms`);
-        await sleep(delayMs);
+        await sleep(delayMs, request.abortSignal);
       }
     }
 
@@ -127,6 +131,7 @@ export class DeepLFreeProvider {
   }
 
   private async translateBatch(texts: TranslateText[], request: TranslateRequest): Promise<TranslateResult[]> {
+    throwIfAborted(request.abortSignal);
     if (texts.length === 0) {
       return [];
     }
@@ -138,7 +143,7 @@ export class DeepLFreeProvider {
     });
     this.log?.(`DeepL free request: ${texts.length} text(s), ${JSON.stringify(texts.map((item) => item.text)).length} chars`);
 
-    const responseBody = await this.fetchText(body);
+    const responseBody = await this.fetchText(body, request.abortSignal);
     let translatedTexts: string[];
     try {
       translatedTexts = parseDeepLFreeTranslation(responseBody);
@@ -162,11 +167,12 @@ export class DeepLFreeProvider {
     }));
   }
 
-  private async fetchText(body: string): Promise<string> {
+  private async fetchText(body: string, abortSignal?: AbortSignal): Promise<string> {
     let response: Response;
     try {
       response = await this.fetchImpl(this.baseUrl, {
         method: 'POST',
+        signal: abortSignal,
         headers: {
           'Content-Type': 'application/json',
           'Accept': '*/*',
@@ -282,8 +288,35 @@ function isRateLimitError(error: unknown): boolean {
   return error instanceof TranslationProviderError && error.code === 'RATE_LIMIT';
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, abortSignal?: AbortSignal): Promise<void> {
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+  if (abortSignal?.aborted) {
+    return Promise.reject(createAbortError());
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      abortSignal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(createAbortError());
+    };
+    abortSignal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function throwIfAborted(abortSignal: AbortSignal | undefined): void {
+  if (abortSignal?.aborted) {
+    throw createAbortError();
+  }
+}
+
+function createAbortError(): Error {
+  return new Error('Translation cancelled.');
 }
 
 function createBatches(

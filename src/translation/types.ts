@@ -6,6 +6,7 @@ export type TranslateText = {
 };
 
 export type TranslateRequest = {
+  abortSignal?: AbortSignal;
   sourceLanguage: string;
   targetLanguage: string;
   texts: TranslateText[];
@@ -28,6 +29,7 @@ export type TranslationProviderMetadata = {
 };
 
 export type TranslateBlocksOptions = {
+  abortSignal?: AbortSignal;
   provider: TranslationProvider;
   sourceLanguage: string;
   targetLanguage: string;

@@ -10,6 +10,7 @@ export async function translateBlocks(options: TranslateBlocksOptions): Promise<
   const deduped = dedupeBlocks(options.blocks);
 
   const uniqueResults = await options.provider.translate({
+    abortSignal: options.abortSignal,
     sourceLanguage: options.sourceLanguage,
     targetLanguage: options.targetLanguage,
     texts: deduped.requestTexts

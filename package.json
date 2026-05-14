@@ -1,0 +1,94 @@
+{
+  "name": "markdown-translator",
+  "displayName": "Markdown Translator",
+  "description": "Bilingual Markdown preview translation for VSCode Desktop.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ah-kevin/Markdown-Translator.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onCommand:markdownTranslator.translatePreview",
+    "onCommand:markdownTranslator.runProviderSpike"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "markdownTranslator.translatePreview",
+        "title": "Markdown Translator: Translate Preview",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "markdownTranslator.runProviderSpike",
+        "title": "Markdown Translator: Run Provider Spike"
+      },
+      {
+        "command": "markdownTranslator.clearPreviewTranslations",
+        "title": "Markdown Translator: Clear Preview Translations",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "configuration": {
+      "title": "Markdown Translator",
+      "properties": {
+        "markdownTranslator.sourceLanguage": {
+          "type": "string",
+          "default": "auto",
+          "description": "Source language for translation."
+        },
+        "markdownTranslator.targetLanguage": {
+          "type": "string",
+          "default": "zh-CN",
+          "description": "Target language for translation."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "markdownTranslator.translatePreview",
+          "when": "activeWebviewPanelId == 'markdown.preview' || activeCustomEditorId == 'vscode.markdown.preview.editor'",
+          "group": "navigation"
+        },
+        {
+          "command": "markdownTranslator.clearPreviewTranslations",
+          "when": "activeWebviewPanelId == 'markdown.preview' || activeCustomEditorId == 'vscode.markdown.preview.editor'",
+          "group": "navigation"
+        }
+      ]
+    },
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./media/officialPreview.css"
+    ]
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "compile": "tsc -p ./",
+    "host": "npm run compile && code --new-window --extensionDevelopmentPath=. /tmp/markdown-translator-smoke",
+    "package": "npm run clean && npm run compile && vsce package --allow-missing-repository",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^20.12.12",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.9.1",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

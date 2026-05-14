@@ -99,7 +99,6 @@ async function translateOfficialPreview(
   const startedAt = Date.now();
   const runId = nextRunId;
   nextRunId += 1;
-  output.show(true);
   output.appendLine('');
   output.appendLine(`[translate#${runId}] command received. resource=${resource?.toString() ?? 'none'}`);
 

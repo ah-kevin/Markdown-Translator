@@ -5,6 +5,8 @@ type DeepLFreeProviderOptions = {
   baseUrl?: string;
   fetch?: (input: string | URL, init?: RequestInit) => Promise<Response>;
   log?: (message: string) => void;
+  maxBatchCharacters?: number;
+  maxBatchTexts?: number;
   onBatchComplete?: (results: TranslateResult[], completed: number, total: number) => Promise<void> | void;
   retryDelayMs?: number;
   maxRetries?: number;
@@ -22,14 +24,18 @@ type DeepLResponse = {
 };
 
 const defaultBaseUrl = 'https://www2.deepl.com/jsonrpc';
+const defaultMaxBatchCharacters = 900;
+const defaultMaxBatchTexts = 4;
 const defaultRetryDelayMs = 1200;
 const defaultMaxRetries = 2;
-const defaultRequestDelayMs = 250;
+const defaultRequestDelayMs = 800;
 
 export class DeepLFreeProvider {
   private readonly baseUrl: string;
   private readonly fetchImpl: (input: string | URL, init?: RequestInit) => Promise<Response>;
   private readonly log?: (message: string) => void;
+  private readonly maxBatchCharacters: number;
+  private readonly maxBatchTexts: number;
   private readonly onBatchComplete?: (results: TranslateResult[], completed: number, total: number) => Promise<void> | void;
   private readonly retryDelayMs: number;
   private readonly maxRetries: number;
@@ -39,6 +45,8 @@ export class DeepLFreeProvider {
     this.baseUrl = options.baseUrl ?? defaultBaseUrl;
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.log = options.log;
+    this.maxBatchCharacters = options.maxBatchCharacters ?? defaultMaxBatchCharacters;
+    this.maxBatchTexts = options.maxBatchTexts ?? defaultMaxBatchTexts;
     this.onBatchComplete = options.onBatchComplete;
     this.retryDelayMs = options.retryDelayMs ?? defaultRetryDelayMs;
     this.maxRetries = options.maxRetries ?? defaultMaxRetries;
@@ -46,14 +54,18 @@ export class DeepLFreeProvider {
   }
 
   async translate(request: TranslateRequest): Promise<TranslateResult[]> {
-    this.log?.(`DeepL free request plan: ${request.texts.length} texts -> ${request.texts.length} sequential request(s)`);
+    const batches = createBatches(request.texts, {
+      maxBatchCharacters: this.maxBatchCharacters,
+      maxBatchTexts: this.maxBatchTexts
+    });
+    this.log?.(`DeepL free batch plan: ${request.texts.length} texts -> ${batches.length} request(s)`);
 
     const results: TranslateResult[] = [];
     let completed = 0;
-    for (const text of request.texts) {
-      const batchResults = await this.translateSingleWithRetry(text, request);
+    for (const batch of batches) {
+      const batchResults = await this.translateBatchWithFallback(batch, request);
       results.push(...batchResults);
-      completed += 1;
+      completed += batch.length;
       await this.onBatchComplete?.(batchResults, completed, request.texts.length);
       if (completed < request.texts.length && this.requestDelayMs > 0) {
         await sleep(this.requestDelayMs);
@@ -61,6 +73,33 @@ export class DeepLFreeProvider {
     }
 
     return results;
+  }
+
+  private async translateBatchWithFallback(
+    texts: TranslateText[],
+    request: TranslateRequest
+  ): Promise<TranslateResult[]> {
+    if (texts.length === 1) {
+      return this.translateSingleWithRetry(texts[0], request);
+    }
+
+    try {
+      return await this.translateBatch(texts, request);
+    } catch (error) {
+      if (!isRateLimitError(error)) {
+        throw error;
+      }
+
+      this.log?.(`DeepL free batch rate limited; waiting ${this.retryDelayMs}ms and splitting ${texts.length} texts`);
+      await sleep(this.retryDelayMs);
+      const splitAt = Math.ceil(texts.length / 2);
+      const left = texts.slice(0, splitAt);
+      const right = texts.slice(splitAt);
+      return [
+        ...await this.translateBatchWithFallback(left, request),
+        ...await this.translateBatchWithFallback(right, request)
+      ];
+    }
   }
 
   private async translateSingleWithRetry(
@@ -245,6 +284,35 @@ function isRateLimitError(error: unknown): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createBatches(
+  texts: TranslateText[],
+  limits: { maxBatchCharacters: number; maxBatchTexts: number }
+): TranslateText[][] {
+  const batches: TranslateText[][] = [];
+  let currentBatch: TranslateText[] = [];
+  let currentLength = 0;
+
+  for (const item of texts) {
+    const nextLength = currentLength + item.text.length;
+    const wouldExceedTexts = currentBatch.length >= limits.maxBatchTexts;
+    const wouldExceedCharacters = currentBatch.length > 0 && nextLength > limits.maxBatchCharacters;
+    if (wouldExceedTexts || wouldExceedCharacters) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentLength = 0;
+    }
+
+    currentBatch.push(item);
+    currentLength += item.text.length;
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
 }
 
 function createRequestId(): number {

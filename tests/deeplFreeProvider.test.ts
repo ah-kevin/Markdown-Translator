@@ -49,7 +49,9 @@ describe('DeepLFreeProvider', () => {
       const body = JSON.parse(String(init?.body).replace('"method" : "', '"method":"').replace('"method": "', '"method":"'));
       return new Response(JSON.stringify({
         result: {
-          texts: [{ text: body.params.texts[0].text === 'Night gathers' ? '夜幕降临' : '守望开始' }]
+          texts: body.params.texts.map((item: { text: string }) => ({
+            text: item.text === 'Night gathers' ? '夜幕降临' : '守望开始'
+          }))
         }
       }), { status: 200 });
     });
@@ -68,7 +70,7 @@ describe('DeepLFreeProvider', () => {
       { id: 'p1', translatedText: '夜幕降临' },
       { id: 'p2', translatedText: '守望开始' }
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('classifies 429 responses as rate limit errors', async () => {
@@ -107,6 +109,42 @@ describe('DeepLFreeProvider', () => {
 
     expect(results).toEqual([{ id: 'p1', translatedText: '夜幕降临' }]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('splits a rate-limited batch and continues with smaller batches', async () => {
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body).replace('"method" : "', '"method":"').replace('"method": "', '"method":"'));
+      if (body.params.texts.length > 1) {
+        return new Response('too many requests', { status: 429 });
+      }
+
+      return new Response(JSON.stringify({
+        result: {
+          texts: [{ text: body.params.texts[0].text === 'Night gathers' ? '夜幕降临' : '守望开始' }]
+        }
+      }), { status: 200 });
+    });
+    const provider = new DeepLFreeProvider({
+      fetch: fetchMock,
+      requestDelayMs: 0,
+      retryDelayMs: 0,
+      maxBatchTexts: 2
+    });
+
+    const results = await provider.translate({
+      sourceLanguage: 'en',
+      targetLanguage: 'zh-CN',
+      texts: [
+        { id: 'p1', text: 'Night gathers' },
+        { id: 'p2', text: 'My watch begins' }
+      ]
+    });
+
+    expect(results).toEqual([
+      { id: 'p1', translatedText: '夜幕降临' },
+      { id: 'p2', translatedText: '守望开始' }
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('rejects malformed translated text responses', async () => {

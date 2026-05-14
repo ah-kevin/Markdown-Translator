@@ -19,6 +19,39 @@ export async function translateBlocks(options: TranslateBlocksOptions): Promise<
   return expandDedupeResults(uniqueResults, deduped);
 }
 
+export function mergeBlockTranslations(
+  blocks: TranslateBlocksOptions['blocks'],
+  existingTranslations: BlockTranslationResult[],
+  newTranslations: BlockTranslationResult[]
+): BlockTranslationResult[] {
+  const byId = new Map<string, BlockTranslationResult>();
+  for (const translation of existingTranslations) {
+    if (translation.translatedText) {
+      byId.set(translation.id, translation);
+    }
+  }
+  for (const translation of newTranslations) {
+    if (translation.translatedText) {
+      byId.set(translation.id, translation);
+    }
+  }
+
+  return blocks.map((block) => byId.get(block.id) ?? { id: block.id, translatedText: '' });
+}
+
+export function getUntranslatedBlocks(
+  blocks: TranslateBlocksOptions['blocks'],
+  existingTranslations: BlockTranslationResult[]
+): TranslateBlocksOptions['blocks'] {
+  const translatedIds = new Set(
+    existingTranslations
+      .filter((translation) => translation.translatedText)
+      .map((translation) => translation.id)
+  );
+
+  return blocks.filter((block) => !translatedIds.has(block.id));
+}
+
 export function createProgressReporter(
   blocks: TranslateBlocksOptions['blocks'],
   onProgress: (progress: TranslateBlocksProgress) => Promise<void> | void

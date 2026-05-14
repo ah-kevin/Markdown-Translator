@@ -5,6 +5,7 @@ import {
   clearAllOfficialPreviewTranslations,
   clearOfficialPreviewTranslations,
   extendMarkdownItWithTranslations,
+  getOfficialPreviewTranslations,
   setOfficialPreviewTranslations
 } from './preview/officialPreviewTranslator';
 import { isOpenableMarkdownResource } from './preview/resource';
@@ -16,7 +17,12 @@ import {
   translationProviders
 } from './translation/providerFactory';
 import { getTranslateAction, TranslationState } from './translation/state';
-import { createProgressReporter, translateBlocks } from './translation/translationOrchestrator';
+import {
+  createProgressReporter,
+  getUntranslatedBlocks,
+  mergeBlockTranslations,
+  translateBlocks
+} from './translation/translationOrchestrator';
 
 export type MarkdownTranslatorExtensionApi = {
   extendMarkdownIt(markdown: MarkdownIt): MarkdownIt;
@@ -129,13 +135,24 @@ async function translateOfficialPreview(
     await vscode.window.showInformationMessage('没有可翻译的 Markdown 段落。');
     return;
   }
+  const existingTranslations = getOfficialPreviewTranslations(document.uri);
+  const blocksToTranslate = getUntranslatedBlocks(blocks, existingTranslations);
+  const existingCompleted = blocks.length - blocksToTranslate.length;
+  if (existingCompleted > 0) {
+    output.appendLine(`[translate#${runId}] resume from existing translations: ${existingCompleted}/${blocks.length} block(s) already translated.`);
+  }
+  if (blocksToTranslate.length === 0) {
+    translationStates.set(documentKey, 'translated');
+    output.appendLine(`[translate#${runId}] noop reason: all blocks already translated for ${documentKey}.`);
+    return;
+  }
 
   activeTranslations.add(documentKey);
   translationStates.set(documentKey, 'running');
   try {
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
-      title: `${providerLabel}: 翻译 ${blocks.length} 个 Markdown 段落`,
+      title: `${providerLabel}: 翻译 ${blocksToTranslate.length} 个 Markdown 段落`,
       cancellable: true
     }, async (progress, token) => {
       const abortController = new AbortController();
@@ -149,9 +166,10 @@ async function translateOfficialPreview(
         output.appendLine(`[translate#${runId}] language ${sourceLanguage} -> ${targetLanguage}`);
         let lastCompleted = 0;
         let lastPreviewRefreshAt = 0;
-        const progressReporter = createProgressReporter(blocks, async (batchProgress) => {
-          setOfficialPreviewTranslations(document.uri, batchProgress.translations);
-          output.appendLine(`[translate#${runId}] progressive render ${batchProgress.completed}/${batchProgress.total} unique text(s).`);
+        const progressReporter = createProgressReporter(blocksToTranslate, async (batchProgress) => {
+          const mergedTranslations = mergeBlockTranslations(blocks, existingTranslations, batchProgress.translations);
+          setOfficialPreviewTranslations(document.uri, mergedTranslations);
+          output.appendLine(`[translate#${runId}] progressive render ${existingCompleted + batchProgress.completed}/${blocks.length} block(s), ${batchProgress.completed}/${batchProgress.total} pending unique text(s).`);
           progress.report({
             increment: batchProgress.total > 0
               ? ((batchProgress.completed - lastCompleted) / batchProgress.total) * 100
@@ -186,14 +204,15 @@ async function translateOfficialPreview(
           provider,
           sourceLanguage,
           targetLanguage,
-          blocks
+          blocks: blocksToTranslate
         });
 
-        setOfficialPreviewTranslations(document.uri, translations);
-        translationStates.set(documentKey, 'translated');
-        output.appendLine(`[translate#${runId}] stored ${translations.length} translation(s).`);
+        const mergedTranslations = mergeBlockTranslations(blocks, existingTranslations, translations);
+        setOfficialPreviewTranslations(document.uri, mergedTranslations);
+        translationStates.set(documentKey, mergedTranslations.every((translation) => translation.translatedText) ? 'translated' : 'failed');
+        output.appendLine(`[translate#${runId}] stored ${mergedTranslations.length} translation(s).`);
         if (debugLogging) {
-          logTranslations(output, runId, translations);
+          logTranslations(output, runId, mergedTranslations);
         }
         await vscode.commands.executeCommand('markdown.api.reloadPlugins');
         output.appendLine(`[translate#${runId}] refreshed official Markdown Preview in ${Date.now() - startedAt}ms.`);

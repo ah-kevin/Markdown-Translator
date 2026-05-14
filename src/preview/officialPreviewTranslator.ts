@@ -25,6 +25,10 @@ export function clearAllOfficialPreviewTranslations(): void {
   translationsByResource.clear();
 }
 
+export function getOfficialPreviewTranslations(resource: ResourceLike): BlockTranslationResult[] {
+  return translationsByResource.get(resourceKey(resource)) ?? [];
+}
+
 export function getOfficialPreviewTranslationResourceCount(): number {
   return translationsByResource.size;
 }

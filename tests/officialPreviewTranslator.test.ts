@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clearOfficialPreviewTranslations,
   extendMarkdownItWithTranslations,
+  getOfficialPreviewTranslations,
   setOfficialPreviewTranslations
 } from '../src/preview/officialPreviewTranslator';
 
@@ -44,6 +45,9 @@ const ignored = true;
     const resource = 'file:///tmp/reset.md';
 
     setOfficialPreviewTranslations(resource, [
+      { id: 'block-0', translatedText: '第一段' }
+    ]);
+    expect(getOfficialPreviewTranslations(resource)).toEqual([
       { id: 'block-0', translatedText: '第一段' }
     ]);
 

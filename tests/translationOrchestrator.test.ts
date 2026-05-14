@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createProgressReporter, translateBlocks } from '../src/translation/translationOrchestrator';
+import {
+  createProgressReporter,
+  getUntranslatedBlocks,
+  mergeBlockTranslations,
+  translateBlocks
+} from '../src/translation/translationOrchestrator';
 import { TranslationProvider } from '../src/translation/types';
 
 describe('translateBlocks', () => {
@@ -97,5 +102,30 @@ describe('translateBlocks', () => {
       id: 'block-0',
       translatedText: '改进围绕 Google Web /m 限制的长文档批处理。'
     }]);
+  });
+
+  it('merges existing and new translations for resumable translation', () => {
+    const blocks = [
+      { id: 'block-0', kind: 'paragraph' as const, text: 'Night gathers' },
+      { id: 'block-1', kind: 'paragraph' as const, text: 'My watch begins' },
+      { id: 'block-2', kind: 'paragraph' as const, text: 'I shall take no wife' }
+    ];
+
+    expect(getUntranslatedBlocks(blocks, [
+      { id: 'block-0', translatedText: '夜幕降临' }
+    ])).toEqual([
+      { id: 'block-1', kind: 'paragraph', text: 'My watch begins' },
+      { id: 'block-2', kind: 'paragraph', text: 'I shall take no wife' }
+    ]);
+
+    expect(mergeBlockTranslations(blocks, [
+      { id: 'block-0', translatedText: '夜幕降临' }
+    ], [
+      { id: 'block-1', translatedText: '我的守望开始' }
+    ])).toEqual([
+      { id: 'block-0', translatedText: '夜幕降临' },
+      { id: 'block-1', translatedText: '我的守望开始' },
+      { id: 'block-2', translatedText: '' }
+    ]);
   });
 });

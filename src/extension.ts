@@ -8,7 +8,6 @@ import {
 } from './preview/officialPreviewTranslator';
 import { isOpenableMarkdownResource } from './preview/resource';
 import { GoogleWebProvider, TranslationProviderError } from './translation/googleWebProvider';
-import { runProviderSpike } from './translation/providerSpike';
 import { getTranslateAction, TranslationState } from './translation/state';
 import { createProgressReporter, translateBlocks } from './translation/translationOrchestrator';
 
@@ -40,9 +39,6 @@ export function activate(context: vscode.ExtensionContext): MarkdownTranslatorEx
     vscode.commands.registerCommand('markdownTranslator.clearPreviewTranslations', async (resource?: vscode.Uri) => {
       await clearPreviewTranslations(resource, output);
     }),
-    vscode.commands.registerCommand('markdownTranslator.runProviderSpike', async () => {
-      await runSpikeCommand(output);
-    }),
     vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.languageId === 'markdown') {
         clearOfficialPreviewTranslations(event.document.uri);
@@ -68,28 +64,6 @@ export function deactivate() {
 
 export function extendMarkdownIt(markdown: MarkdownIt): MarkdownIt {
   return extendMarkdownItWithTranslations(markdown);
-}
-
-async function runSpikeCommand(output: vscode.OutputChannel): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-  const selectedText = editor?.document.getText(editor.selection).trim();
-  const text = selectedText || 'Night gathers, and now my watch begins.';
-  const config = vscode.workspace.getConfiguration('markdownTranslator');
-  const sourceLanguage = config.get<string>('sourceLanguage', 'en');
-  const targetLanguage = config.get<string>('targetLanguage', 'zh-CN');
-
-  output.show(true);
-  output.appendLine(`Running Google Web provider spike: ${sourceLanguage} -> ${targetLanguage}`);
-  output.appendLine(`Input: ${text}`);
-
-  const results = await runProviderSpike({ sourceLanguage, targetLanguage, text });
-  for (const result of results) {
-    if (result.ok) {
-      output.appendLine(`[${result.candidate}] OK: ${result.translatedText}`);
-    } else {
-      output.appendLine(`[${result.candidate}] ${result.errorCode}: ${result.message}`);
-    }
-  }
 }
 
 async function translateOfficialPreview(

@@ -41,8 +41,6 @@ This keeps the source document untouched while avoiding a custom preview webview
   - Translates the current Markdown document and refreshes the official Markdown Preview.
 - `Markdown Translator: Clear Preview Translations`
   - Clears in-memory translations for the current Markdown Preview and refreshes the official preview.
-- `Markdown Translator: Run Provider Spike`
-  - Tests Google Web `mobile` and `rpc` candidates against selected text or a default sample.
 
 ## Settings
 

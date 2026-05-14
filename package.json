@@ -17,8 +17,7 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
-    "onCommand:markdownTranslator.translatePreview",
-    "onCommand:markdownTranslator.runProviderSpike"
+    "onCommand:markdownTranslator.translatePreview"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -27,10 +26,6 @@
         "command": "markdownTranslator.translatePreview",
         "title": "Markdown Translator: Translate Preview",
         "icon": "$(globe)"
-      },
-      {
-        "command": "markdownTranslator.runProviderSpike",
-        "title": "Markdown Translator: Run Provider Spike"
       },
       {
         "command": "markdownTranslator.clearPreviewTranslations",

@@ -41,8 +41,6 @@
   - 翻译当前 Markdown 文档并刷新官方 Markdown Preview。
 - `Markdown Translator: Clear Preview Translations`
   - 清除当前 Markdown Preview 的内存译文，并刷新官方预览。
-- `Markdown Translator: Run Provider Spike`
-  - 使用选中文本或默认示例测试 Google Web `mobile` 与 `rpc` 候选实现。
 
 ## 配置
 

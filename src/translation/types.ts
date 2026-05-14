@@ -44,5 +44,6 @@ export type TranslateBlocksProgress = {
 
 export type BlockTranslationResult = {
   id: string;
+  sourceText?: string;
   translatedText: string;
 };

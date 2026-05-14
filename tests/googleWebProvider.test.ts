@@ -40,6 +40,27 @@ describe('GoogleWebProvider', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('passes cancellation signals to mobile fetch requests', async () => {
+    const abortController = new AbortController();
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      expect(init?.signal).toBe(abortController.signal);
+      return new Response(
+        '<div class="result-container">长夜将至</div>',
+        { status: 200 }
+      );
+    });
+    const provider = new GoogleWebProvider({ fetch: fetchMock, candidate: 'mobile' });
+
+    await provider.translate({
+      abortSignal: abortController.signal,
+      sourceLanguage: 'en',
+      targetLanguage: 'zh-CN',
+      texts: [{ id: 'p1', text: 'Night gathers' }]
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('batches multiple mobile translations into one request and splits the result by marker', async () => {
     const fetchMock = vi.fn(async () => new Response(
       '<div class="result-container">长夜将至\n&lt;&lt;&lt;MD_TRANSLATOR_BLOCK_0&gt;&gt;&gt;\n守望开始</div>',

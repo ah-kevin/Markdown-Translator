@@ -6,6 +6,7 @@ type ResourceLike = string | { toString(): string };
 
 const maxTranslationResources = 50;
 const translationsByResource = new Map<string, BlockTranslationResult[]>();
+const markdownItEnhancedKey = Symbol.for('markdown-translator.markdown-it-enhanced');
 
 export function setOfficialPreviewTranslations(
   resource: ResourceLike,
@@ -34,6 +35,12 @@ export function getOfficialPreviewTranslationResourceCount(): number {
 }
 
 export function extendMarkdownItWithTranslations(markdown: MarkdownIt): MarkdownIt {
+  const enhancedState = markdown as MarkdownIt & { [markdownItEnhancedKey]?: boolean };
+  if (enhancedState[markdownItEnhancedKey]) {
+    return markdown;
+  }
+  enhancedState[markdownItEnhancedKey] = true;
+
   const originalRender = markdown.renderer.render.bind(markdown.renderer);
   const defaultRenderToken = markdown.renderer.renderToken.bind(markdown.renderer);
   const originalBlockquoteOpen = markdown.renderer.rules.blockquote_open;
@@ -166,9 +173,12 @@ function resolveTranslation(
   }
 
   const expected = translations?.[blockIndex];
+  const hasMatchingSource = !expected?.sourceText || expected.sourceText === text;
   return {
     isTranslatable: true,
-    translatedText: expected?.id === `block-${blockIndex}` ? expected.translatedText : undefined
+    translatedText: expected?.id === `block-${blockIndex}` && hasMatchingSource
+      ? expected.translatedText
+      : undefined
   };
 }
 
@@ -205,7 +215,16 @@ function protectInlineContent(token: Token): string {
     return token.content;
   }
 
-  return children.map((child) => child.type === 'code_inline' ? '__MD_TRANSLATOR_CODE__' : child.content).join('');
+  let protectedInlineCount = 0;
+  return children.map((child) => {
+    if (child.type !== 'code_inline') {
+      return child.content;
+    }
+
+    const placeholder = `__MD_TRANSLATOR_CODE_${protectedInlineCount}__`;
+    protectedInlineCount += 1;
+    return placeholder;
+  }).join('');
 }
 
 function looksLikeFormulaBlock(text: string): boolean {

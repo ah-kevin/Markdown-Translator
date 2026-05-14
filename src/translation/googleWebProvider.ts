@@ -62,6 +62,7 @@ export class GoogleWebProvider {
   }
 
   async translate(request: TranslateRequest): Promise<TranslateResult[]> {
+    throwIfAborted(request.abortSignal);
     if (this.candidate === 'mobile') {
       return this.translateMobileBatches(request);
     }
@@ -69,6 +70,7 @@ export class GoogleWebProvider {
     const results: TranslateResult[] = [];
 
     for (const item of request.texts) {
+      throwIfAborted(request.abortSignal);
       const translatedText = await this.translateWithRpc(item.text, request);
 
       results.push({ id: item.id, translatedText });
@@ -93,6 +95,7 @@ export class GoogleWebProvider {
     let completed = 0;
 
     for (const batch of batches) {
+      throwIfAborted(request.abortSignal);
       const batchResults = await this.translateMobileBatch(batch, request);
       results.push(...batchResults);
       completed += batch.length;
@@ -131,6 +134,7 @@ export class GoogleWebProvider {
   ): Promise<TranslateResult[]> {
     const results: TranslateResult[] = [];
     for (const item of texts) {
+      throwIfAborted(request.abortSignal);
       this.log?.(`Google mobile per-text request: ${item.text.length} chars`);
       results.push({
         id: item.id,
@@ -146,7 +150,9 @@ export class GoogleWebProvider {
     url.searchParams.set('tl', request.targetLanguage);
     url.searchParams.set('q', text);
 
-    const body = await this.fetchText(url, 'mobile');
+    const body = await this.fetchText(url, 'mobile', {
+      signal: request.abortSignal
+    });
     try {
       return parseMobileTranslation(body);
     } catch (error) {
@@ -182,6 +188,7 @@ export class GoogleWebProvider {
 
     const body = await this.fetchText(url, 'rpc', {
       method: 'POST',
+      signal: request.abortSignal,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
         'User-Agent': 'Mozilla/5.0 Markdown-Translator'
@@ -209,6 +216,9 @@ export class GoogleWebProvider {
     try {
       response = await this.fetchImpl(url, init);
     } catch (error) {
+      if (isAbortError(error)) {
+        throw createAbortError();
+      }
       throw new TranslationProviderError('Google Web translation request failed.', {
         code: 'NETWORK',
         candidate,
@@ -352,4 +362,18 @@ function getBatchMarker(index: number): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function throwIfAborted(abortSignal: AbortSignal | undefined): void {
+  if (abortSignal?.aborted) {
+    throw createAbortError();
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function createAbortError(): Error {
+  return new Error('Translation cancelled.');
 }

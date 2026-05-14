@@ -60,6 +60,57 @@ const ignored = true;
     clearOfficialPreviewTranslations(resource);
   });
 
+  it('does not inject duplicate translations when the plugin is applied twice', () => {
+    const markdown = new MarkdownIt();
+    extendMarkdownItWithTranslations(markdown);
+    extendMarkdownItWithTranslations(markdown);
+    const resource = 'file:///tmp/duplicate.md';
+
+    setOfficialPreviewTranslations(resource, [
+      { id: 'block-0', translatedText: '第一段' }
+    ]);
+
+    const html = markdown.render('First paragraph.', { currentDocument: resource });
+
+    expect(html.match(/md-translator-translation/g)).toHaveLength(1);
+
+    clearOfficialPreviewTranslations(resource);
+  });
+
+  it('does not inject stale translations when the source text does not match the rendered block', () => {
+    const markdown = extendMarkdownItWithTranslations(new MarkdownIt());
+    const resource = 'file:///tmp/stale.md';
+
+    setOfficialPreviewTranslations(resource, [
+      { id: 'block-0', sourceText: 'Old paragraph.', translatedText: '旧段落' }
+    ]);
+
+    const html = markdown.render('New paragraph.', { currentDocument: resource });
+
+    expect(html).not.toContain('md-translator-translation');
+
+    clearOfficialPreviewTranslations(resource);
+  });
+
+  it('matches source text with indexed inline code placeholders', () => {
+    const markdown = extendMarkdownItWithTranslations(new MarkdownIt());
+    const resource = 'file:///tmp/source-inline.md';
+
+    setOfficialPreviewTranslations(resource, [
+      {
+        id: 'block-0',
+        sourceText: 'Improve Google Web __MD_TRANSLATOR_CODE_0__ limits.',
+        translatedText: '改进 Google Web `/m` 限制。'
+      }
+    ]);
+
+    const html = markdown.render('Improve Google Web `/m` limits.', { currentDocument: resource });
+
+    expect(html).toContain('<div class="md-translator-translation">改进 Google Web `/m` 限制。</div>');
+
+    clearOfficialPreviewTranslations(resource);
+  });
+
   it('keeps block matching aligned when inline code contains shell variables', () => {
     const markdown = extendMarkdownItWithTranslations(new MarkdownIt({ html: true }));
     const resource = 'file:///tmp/shell-vars.md';

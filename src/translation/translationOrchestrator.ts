@@ -36,20 +36,30 @@ export function mergeBlockTranslations(
     }
   }
 
-  return blocks.map((block) => byId.get(block.id) ?? { id: block.id, translatedText: '' });
+  return blocks.map((block) => {
+    const translation = byId.get(block.id);
+    return {
+      id: block.id,
+      sourceText: block.text,
+      translatedText: translation?.translatedText ?? ''
+    };
+  });
 }
 
 export function getUntranslatedBlocks(
   blocks: TranslateBlocksOptions['blocks'],
   existingTranslations: BlockTranslationResult[]
 ): TranslateBlocksOptions['blocks'] {
-  const translatedIds = new Set(
+  const existingById = new Map(
     existingTranslations
       .filter((translation) => translation.translatedText)
-      .map((translation) => translation.id)
+      .map((translation) => [translation.id, translation])
   );
 
-  return blocks.filter((block) => !translatedIds.has(block.id));
+  return blocks.filter((block) => {
+    const existing = existingById.get(block.id);
+    return !existing || (existing.sourceText !== undefined && existing.sourceText !== block.text);
+  });
 }
 
 export function createProgressReporter(
@@ -120,6 +130,7 @@ function expandDedupeResults(
     const translation = dedupeId ? translationByDedupeId.get(dedupeId) : undefined;
     return {
       id: block.id,
+      sourceText: block.text,
       translatedText: restoreProtectedInlines(translation?.translatedText ?? '', block.protectedInlines)
     };
   });

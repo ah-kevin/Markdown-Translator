@@ -36,9 +36,9 @@ describe('translateBlocks', () => {
       ]
     });
     expect(results).toEqual([
-      { id: 'block-0', translatedText: '长夜将至' },
-      { id: 'block-1', translatedText: '长夜将至' },
-      { id: 'block-2', translatedText: '守望开始' }
+      { id: 'block-0', sourceText: 'Night gathers', translatedText: '长夜将至' },
+      { id: 'block-1', sourceText: 'Night gathers', translatedText: '长夜将至' },
+      { id: 'block-2', sourceText: 'My watch begins', translatedText: '守望开始' }
     ]);
   });
 
@@ -63,9 +63,9 @@ describe('translateBlocks', () => {
       completed: 1,
       total: 2,
       translations: [
-        { id: 'block-0', translatedText: '长夜将至' },
-        { id: 'block-1', translatedText: '长夜将至' },
-        { id: 'block-2', translatedText: '' }
+        { id: 'block-0', sourceText: 'Night gathers', translatedText: '长夜将至' },
+        { id: 'block-1', sourceText: 'Night gathers', translatedText: '长夜将至' },
+        { id: 'block-2', sourceText: 'My watch begins', translatedText: '' }
       ]
     });
   });
@@ -100,6 +100,7 @@ describe('translateBlocks', () => {
     });
     expect(results).toEqual([{
       id: 'block-0',
+      sourceText: 'Improve long-document batching around Google Web __MD_TRANSLATOR_CODE_0__ limits.',
       translatedText: '改进围绕 Google Web /m 限制的长文档批处理。'
     }]);
   });
@@ -123,9 +124,21 @@ describe('translateBlocks', () => {
     ], [
       { id: 'block-1', translatedText: '我的守望开始' }
     ])).toEqual([
-      { id: 'block-0', translatedText: '夜幕降临' },
-      { id: 'block-1', translatedText: '我的守望开始' },
-      { id: 'block-2', translatedText: '' }
+      { id: 'block-0', sourceText: 'Night gathers', translatedText: '夜幕降临' },
+      { id: 'block-1', sourceText: 'My watch begins', translatedText: '我的守望开始' },
+      { id: 'block-2', sourceText: 'I shall take no wife', translatedText: '' }
+    ]);
+  });
+
+  it('treats stale translations with mismatched source text as untranslated', () => {
+    const blocks = [
+      { id: 'block-0', kind: 'paragraph' as const, text: 'New paragraph' }
+    ];
+
+    expect(getUntranslatedBlocks(blocks, [
+      { id: 'block-0', sourceText: 'Old paragraph', translatedText: '旧段落' }
+    ])).toEqual([
+      { id: 'block-0', kind: 'paragraph', text: 'New paragraph' }
     ]);
   });
 });

@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DeepLFreeProvider,
   createDeepLRequestBody,
-  parseDeepLFreeTranslation
+  parseDeepLFreeTranslation,
+  shouldUseSpacedDeepLMethod
 } from '../src/translation/deeplFreeProvider';
 import { TranslationProviderError } from '../src/translation/googleWebProvider';
 
@@ -27,6 +28,25 @@ describe('DeepL Free provider request helpers', () => {
     expect(payload.params.texts).toEqual([
       { text: 'Night gathers', requestAlternatives: 3 }
     ]);
+  });
+
+  it('matches DeepL web method spacing rules from the reference script', () => {
+    expect(shouldUseSpacedDeepLMethod(100002000)).toBe(true);
+    expect(shouldUseSpacedDeepLMethod(100012000)).toBe(true);
+    expect(shouldUseSpacedDeepLMethod(100000000)).toBe(false);
+
+    expect(createDeepLRequestBody({
+      texts: ['Night gathers'],
+      sourceLanguage: 'auto',
+      targetLanguage: 'zh-CN',
+      requestId: 100012000
+    })).toContain('"method" : "LMT_handle_texts"');
+    expect(createDeepLRequestBody({
+      texts: ['Night gathers'],
+      sourceLanguage: 'auto',
+      targetLanguage: 'zh-CN',
+      requestId: 100000000
+    })).toContain('"method": "LMT_handle_texts"');
   });
 
   it('parses translated texts from a DeepL response', () => {

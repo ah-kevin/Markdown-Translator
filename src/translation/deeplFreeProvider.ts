@@ -215,8 +215,9 @@ export function createDeepLRequestBody(options: {
   texts: string[];
   sourceLanguage: string;
   targetLanguage: string;
+  requestId?: number;
 }): string {
-  const id = createRequestId();
+  const id = options.requestId ?? createRequestId();
   const targetLanguage = normalizeTargetLanguage(options.targetLanguage);
   const params: {
     splitting: string;
@@ -258,9 +259,13 @@ export function createDeepLRequestBody(options: {
   };
 
   const body = JSON.stringify(payload);
-  return (id + 5) % 29 === 0
+  return shouldUseSpacedDeepLMethod(id)
     ? body.replace('"method":"', '"method" : "')
     : body.replace('"method":"', '"method": "');
+}
+
+export function shouldUseSpacedDeepLMethod(id: number): boolean {
+  return (id + 5) % 29 === 0 || (id + 3) % 13 === 0;
 }
 
 export function parseDeepLFreeTranslation(body: string): string[] {
@@ -349,7 +354,7 @@ function createBatches(
 }
 
 function createRequestId(): number {
-  return (Math.floor(Math.random() * 99999) + 100000) * 1000;
+  return (Math.floor(Math.random() * 10000) + 100000) * 1000;
 }
 
 function createTimestamp(texts: string[]): number {

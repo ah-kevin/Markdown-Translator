@@ -145,7 +145,7 @@ function resolveTranslation(
   const resource = getEnvResource(env);
   const translations = resource ? translationsByResource.get(resource) : undefined;
   const inlineToken = tokens[index + 1];
-  const text = inlineToken?.content?.trim();
+  const text = inlineToken ? protectInlineContent(inlineToken).trim() : '';
 
   if (
     !inlineToken
@@ -191,8 +191,17 @@ function isOnlyProtectedInline(token: Token): boolean {
   ));
 }
 
+function protectInlineContent(token: Token): string {
+  const children = token.children;
+  if (!children) {
+    return token.content;
+  }
+
+  return children.map((child) => child.type === 'code_inline' ? '__MD_TRANSLATOR_CODE__' : child.content).join('');
+}
+
 function looksLikeFormulaBlock(text: string): boolean {
-  return text.startsWith('$$') || text.endsWith('$$') || /\$[^$\n]+\$/.test(text);
+  return text.startsWith('$$') || text.endsWith('$$') || /(^|[\s(\[{])\$[^$\n]*\S\$(?=$|[\s.,;:!?)\]}])/u.test(text);
 }
 
 function escapeHtml(value: string): string {

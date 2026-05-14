@@ -53,4 +53,20 @@ $$
       }
     ]);
   });
+
+  it('does not treat shell variables as inline formulas', () => {
+    const markdown = '- surface_locator can use $ITERM_SESSION_ID or $CODEX_THREAD_ID when registering.';
+
+    expect(collectTranslatableBlocks(markdown)).toEqual([{
+      id: 'block-0',
+      kind: 'listItem',
+      text: 'surface_locator can use $ITERM_SESSION_ID or $CODEX_THREAD_ID when registering.'
+    }]);
+  });
+
+  it('still skips inline math formulas', () => {
+    const markdown = '- Keep $x + y$ unchanged.';
+
+    expect(collectTranslatableBlocks(markdown)).toEqual([]);
+  });
 });

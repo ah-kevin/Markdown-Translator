@@ -102,7 +102,7 @@ function isOnlyProtectedInline(token: { children: Array<{ type: string; content?
 }
 
 function looksLikeFormulaBlock(text: string): boolean {
-  return text.startsWith('$$') || text.endsWith('$$') || /\$[^$\n]+\$/.test(text);
+  return text.startsWith('$$') || text.endsWith('$$') || /(^|[\s(\[{])\$[^$\n]*\S\$(?=$|[\s.,;:!?)\]}])/u.test(text);
 }
 
 function getBlockKind(

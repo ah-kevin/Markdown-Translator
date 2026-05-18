@@ -2,7 +2,7 @@
   "name": "md-immersive-translate",
   "displayName": "Markdown Immersive Translate",
   "description": "Bilingual Markdown preview translation for VSCode Desktop.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "ah-kevin",
   "license": "MIT",
   "icon": "media/icon.png",

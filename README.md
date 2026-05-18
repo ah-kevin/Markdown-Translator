@@ -100,7 +100,7 @@ npm run package
 Install it into VSCode:
 
 ```bash
-code --install-extension md-immersive-translate-1.0.0.vsix
+code --install-extension md-immersive-translate-1.0.1.vsix
 ```
 
 Or install from the VSCode UI:
@@ -108,7 +108,7 @@ Or install from the VSCode UI:
 1. Open Extensions.
 2. Open the `...` menu.
 3. Choose `Install from VSIX...`.
-4. Select `md-immersive-translate-1.0.0.vsix`.
+4. Select `md-immersive-translate-1.0.1.vsix`.
 
 After installing, open a Markdown file, run `Markdown: Open Preview to the Side`, and use the Markdown Translator buttons in the preview title bar.
 

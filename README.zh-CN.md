@@ -3,9 +3,9 @@
 [English](./README.md) | [中文](./README.zh-CN.md)
 
 <!-- Marketplace badges（发布前替换 publisher ID） -->
-<!-- [![版本](https://img.shields.io/visual-studio-marketplace/v/<TBD>.markdown-translator)](https://marketplace.visualstudio.com/items?itemName=<TBD>.markdown-translator) -->
-<!-- [![安装数](https://img.shields.io/visual-studio-marketplace/i/<TBD>.markdown-translator)](https://marketplace.visualstudio.com/items?itemName=<TBD>.markdown-translator) -->
-<!-- [![评分](https://img.shields.io/visual-studio-marketplace/r/<TBD>.markdown-translator)](https://marketplace.visualstudio.com/items?itemName=<TBD>.markdown-translator) -->
+<!-- [![版本](https://img.shields.io/visual-studio-marketplace/v/ah-kevin.immersive-markdown-translator)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator) -->
+<!-- [![安装数](https://img.shields.io/visual-studio-marketplace/i/ah-kevin.immersive-markdown-translator)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator) -->
+<!-- [![评分](https://img.shields.io/visual-studio-marketplace/r/ah-kevin.immersive-markdown-translator)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator) -->
 
 沉浸式双语 Markdown 翻译 VSCode 插件——在 Preview 面板中用母语阅读任何 Markdown 文档，不修改源文件。
 
@@ -87,7 +87,7 @@ npm run host
 
 ### 从 VSCode Marketplace 安装
 
-在 Extensions 视图（`Ctrl+Shift+X` / `Cmd+Shift+X`）搜索 **Markdown Translator**，或访问 [Marketplace 页面](https://marketplace.visualstudio.com/items?itemName=<TBD>.markdown-translator)。
+在 Extensions 视图（`Ctrl+Shift+X` / `Cmd+Shift+X`）搜索 **Markdown Translator**，或访问 [Marketplace 页面](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator)。
 
 ### 本地 VSIX 安装
 
@@ -100,13 +100,13 @@ npm run package
 安装到 VSCode：
 
 ```bash
-code --install-extension markdown-translator-1.0.0.vsix
+code --install-extension immersive-markdown-translator-1.0.0.vsix
 ```
 
 如果已经安装过同版本，可以强制覆盖：
 
 ```bash
-code --install-extension markdown-translator-1.0.0.vsix --force
+code --install-extension immersive-markdown-translator-1.0.0.vsix --force
 ```
 
 也可以通过 VSCode UI 安装：
@@ -114,7 +114,7 @@ code --install-extension markdown-translator-1.0.0.vsix --force
 1. 打开 Extensions。
 2. 打开 `...` 菜单。
 3. 选择 `Install from VSIX...`。
-4. 选择 `markdown-translator-1.0.0.vsix`。
+4. 选择 `immersive-markdown-translator-1.0.0.vsix`。
 
 安装后打开 Markdown 文件，执行 `Markdown: Open Preview to the Side`，然后使用预览标题栏里的 Markdown Translator 按钮。
 

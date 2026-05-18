@@ -3,9 +3,9 @@
 [English](./README.md) | [中文](./README.zh-CN.md)
 
 <!-- Marketplace badges (update publisher ID before publishing) -->
-<!-- [![Version](https://img.shields.io/visual-studio-marketplace/v/ah-kevin.immersive-markdown-translator)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator) -->
-<!-- [![Installs](https://img.shields.io/visual-studio-marketplace/i/ah-kevin.immersive-markdown-translator)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator) -->
-<!-- [![Rating](https://img.shields.io/visual-studio-marketplace/r/ah-kevin.immersive-markdown-translator)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator) -->
+<!-- [![Version](https://img.shields.io/visual-studio-marketplace/v/ah-kevin.md-immersive-translate)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.md-immersive-translate) -->
+<!-- [![Installs](https://img.shields.io/visual-studio-marketplace/i/ah-kevin.md-immersive-translate)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.md-immersive-translate) -->
+<!-- [![Rating](https://img.shields.io/visual-studio-marketplace/r/ah-kevin.md-immersive-translate)](https://marketplace.visualstudio.com/items?itemName=ah-kevin.md-immersive-translate) -->
 
 Immersive bilingual Markdown translation for VSCode — read any Markdown document side-by-side in your native language without modifying the source file.
 
@@ -87,7 +87,7 @@ npm run host
 
 ### From VSCode Marketplace
 
-Search for **Markdown Translator** in the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`), or install from the [Marketplace page](https://marketplace.visualstudio.com/items?itemName=ah-kevin.immersive-markdown-translator).
+Search for **Markdown Translator** in the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`), or install from the [Marketplace page](https://marketplace.visualstudio.com/items?itemName=ah-kevin.md-immersive-translate).
 
 ### Local VSIX Install
 
@@ -100,7 +100,7 @@ npm run package
 Install it into VSCode:
 
 ```bash
-code --install-extension immersive-markdown-translator-1.0.0.vsix
+code --install-extension md-immersive-translate-1.0.0.vsix
 ```
 
 Or install from the VSCode UI:
@@ -108,7 +108,7 @@ Or install from the VSCode UI:
 1. Open Extensions.
 2. Open the `...` menu.
 3. Choose `Install from VSIX...`.
-4. Select `immersive-markdown-translator-1.0.0.vsix`.
+4. Select `md-immersive-translate-1.0.0.vsix`.
 
 After installing, open a Markdown file, run `Markdown: Open Preview to the Side`, and use the Markdown Translator buttons in the preview title bar.
 

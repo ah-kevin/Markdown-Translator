@@ -1,6 +1,6 @@
 {
   "name": "md-immersive-translate",
-  "displayName": "Markdown Translator",
+  "displayName": "Markdown Immersive Translate",
   "description": "Bilingual Markdown preview translation for VSCode Desktop.",
   "version": "1.0.0",
   "publisher": "ah-kevin",

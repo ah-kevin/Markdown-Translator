@@ -2,9 +2,19 @@
   "name": "markdown-translator",
   "displayName": "Markdown Translator",
   "description": "Bilingual Markdown preview translation for VSCode Desktop.",
-  "version": "0.0.1",
-  "publisher": "local",
-  "license": "UNLICENSED",
+  "version": "1.0.0",
+  "publisher": "ah-kevin",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "keywords": [
+    "markdown",
+    "translation",
+    "bilingual",
+    "immersive",
+    "preview",
+    "google-translate",
+    "deepl"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/ah-kevin/Markdown-Translator.git"
@@ -13,7 +23,8 @@
     "vscode": "^1.90.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization"
   ],
   "activationEvents": [
     "onLanguage:markdown",

@@ -8,7 +8,7 @@ import {
   getOfficialPreviewTranslations,
   setOfficialPreviewTranslations
 } from './preview/officialPreviewTranslator';
-import { isOpenableMarkdownResource } from './preview/resource';
+import { isMarkdownLanguage, isOpenableMarkdownResource } from './preview/resource';
 import {
   createTranslationProvider,
   describeProviderError,
@@ -68,13 +68,13 @@ export function activate(context: vscode.ExtensionContext): MarkdownTranslatorEx
       }
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
-      if (event.document.languageId === 'markdown') {
+      if (isMarkdownLanguage(event.document.languageId)) {
         clearOfficialPreviewTranslations(event.document.uri);
         translationStates.delete(event.document.uri.toString());
       }
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
-      if (document.languageId === 'markdown') {
+      if (isMarkdownLanguage(document.languageId)) {
         clearOfficialPreviewTranslations(document.uri);
         translationStates.delete(document.uri.toString());
       }
@@ -273,17 +273,17 @@ async function selectTranslationProvider(output: vscode.OutputChannel): Promise<
 async function resolveMarkdownDocument(resource: vscode.Uri | undefined): Promise<vscode.TextDocument | undefined> {
   if (resource && isOpenableMarkdownResource(resource)) {
     const document = await vscode.workspace.openTextDocument(resource);
-    return document.languageId === 'markdown' ? document : undefined;
+    return isMarkdownLanguage(document.languageId) ? document : undefined;
   }
 
   const activeDocument = vscode.window.activeTextEditor?.document;
-  if (activeDocument?.languageId === 'markdown') {
+  if (isMarkdownLanguage(activeDocument?.languageId)) {
     return activeDocument;
   }
 
   await vscode.commands.executeCommand('markdown.showSource');
   const sourceDocument = vscode.window.activeTextEditor?.document;
-  return sourceDocument?.languageId === 'markdown' ? sourceDocument : undefined;
+  return isMarkdownLanguage(sourceDocument?.languageId) ? sourceDocument : undefined;
 }
 
 async function clearPreviewTranslations(

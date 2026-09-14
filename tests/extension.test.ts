@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { isOpenableMarkdownResource } from '../src/preview/resource';
+import { isMarkdownLanguage, isOpenableMarkdownResource } from '../src/preview/resource';
+
+describe('isMarkdownLanguage', () => {
+  it('accepts plain markdown documents', () => {
+    expect(isMarkdownLanguage('markdown')).toBe(true);
+  });
+
+  it.each(['prompt', 'instructions', 'chatagent', 'skill'])(
+    'accepts VSCode built-in markdown-based language %s (e.g. SKILL.md)',
+    (languageId) => {
+      expect(isMarkdownLanguage(languageId)).toBe(true);
+    }
+  );
+
+  it('rejects non-markdown languages', () => {
+    expect(isMarkdownLanguage('plaintext')).toBe(false);
+  });
+});
 
 describe('isOpenableMarkdownResource', () => {
   it('rejects VSCode webview panel pseudo resources', () => {

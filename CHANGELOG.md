@@ -5,6 +5,12 @@ All notable changes to Markdown Translator are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-09-14
+
+### Fixed
+
+- Translation now works on markdown files that VSCode opens with a built-in markdown-based language mode instead of `markdown`: `SKILL.md` (`skill`), `*.prompt.md` (`prompt`), `*.instructions.md` / `copilot-instructions.md` (`instructions`), and `*.agent.md` / `*.chatmode.md` (`chatagent`). Previously these showed "请先打开一个 Markdown 文件或官方 Markdown Preview。" even though the official Markdown Preview could open them.
+
 ## [1.0.2] - 2026-05-18
 
 ### Fixed

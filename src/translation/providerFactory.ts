@@ -49,7 +49,7 @@ export function createTranslationProvider(options: ProviderFactoryOptions): Tran
   }
 
   return new GoogleWebProvider({
-    candidate: 'mobile',
+    candidate: 'gtx',
     log: options.log,
     onBatchComplete: options.onBatchComplete
   });

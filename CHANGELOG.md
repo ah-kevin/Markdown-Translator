@@ -5,6 +5,12 @@ All notable changes to Markdown Translator are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-09-14
+
+### Fixed
+
+- Google Web translation no longer fails with "请求过快或被限流" (HTTP 429). Google now answers cookie-less requests with its "unusual traffic" page, and blocks the `/m` mobile page the provider used even with a cookie. The provider now fetches Google's `NID` cookie from the homepage once and posts to `translate.google.com/translate_a/single` (`client=gtx`) with it, the same endpoint the Bob Google Translate plugin uses. Batched translation with block markers keeps working on the new endpoint.
+
 ## [1.0.3] - 2026-09-14
 
 ### Fixed

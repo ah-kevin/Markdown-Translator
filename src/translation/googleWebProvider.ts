@@ -1,6 +1,6 @@
 import { TranslateRequest, TranslateResult, TranslateText } from './types';
 
-export type TranslationCandidate = 'mobile' | 'rpc';
+export type TranslationCandidate = 'mobile' | 'rpc' | 'gtx';
 
 
 export type TranslationProviderErrorCode =
@@ -51,6 +51,7 @@ export class GoogleWebProvider {
   private readonly maxBatchCharacters: number;
   private readonly log?: (message: string) => void;
   private readonly onBatchComplete?: (results: TranslateResult[], completed: number, total: number) => Promise<void> | void;
+  private cookie?: Promise<string>;
 
   constructor(options: GoogleWebProviderOptions = {}) {
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
@@ -63,7 +64,7 @@ export class GoogleWebProvider {
 
   async translate(request: TranslateRequest): Promise<TranslateResult[]> {
     throwIfAborted(request.abortSignal);
-    if (this.candidate === 'mobile') {
+    if (this.candidate === 'mobile' || this.candidate === 'gtx') {
       return this.translateMobileBatches(request);
     }
 
@@ -86,12 +87,12 @@ export class GoogleWebProvider {
         return [];
       }
 
-      return [{ id: item.id, translatedText: await this.translateWithMobile(item.text, request) }];
+      return [{ id: item.id, translatedText: await this.translateSingle(item.text, request) }];
     }
 
     const results: TranslateResult[] = [];
     const batches = createMobileBatches(request.texts, this.maxBatchCharacters);
-    this.log?.(`Google mobile batch plan: ${request.texts.length} texts -> ${batches.length} request(s)`);
+    this.log?.(`Google ${this.candidate} batch plan: ${request.texts.length} texts -> ${batches.length} request(s)`);
     let completed = 0;
 
     for (const batch of batches) {
@@ -110,15 +111,15 @@ export class GoogleWebProvider {
   ): Promise<TranslateResult[]> {
     if (texts.length === 1) {
       const item = texts[0];
-      return [{ id: item.id, translatedText: await this.translateWithMobile(item.text, request) }];
+      return [{ id: item.id, translatedText: await this.translateSingle(item.text, request) }];
     }
 
     const combinedText = combineBatchText(texts);
-    this.log?.(`Google mobile batch request: ${texts.length} texts, ${combinedText.length} chars`);
-    const translatedText = await this.translateWithMobile(combinedText, request);
+    this.log?.(`Google ${this.candidate} batch request: ${texts.length} texts, ${combinedText.length} chars`);
+    const translatedText = await this.translateSingle(combinedText, request);
     const translatedParts = splitBatchTranslation(translatedText, texts.length);
     if (!translatedParts) {
-      this.log?.(`Google mobile batch split failed; falling back to ${texts.length} per-text request(s)`);
+      this.log?.(`Google ${this.candidate} batch split failed; falling back to ${texts.length} per-text request(s)`);
       return this.translateMobileItemsIndividually(texts, request);
     }
 
@@ -135,10 +136,10 @@ export class GoogleWebProvider {
     const results: TranslateResult[] = [];
     for (const item of texts) {
       throwIfAborted(request.abortSignal);
-      this.log?.(`Google mobile per-text request: ${item.text.length} chars`);
+      this.log?.(`Google ${this.candidate} per-text request: ${item.text.length} chars`);
       results.push({
         id: item.id,
-        translatedText: await this.translateWithMobile(item.text, request)
+        translatedText: await this.translateSingle(item.text, request)
       });
     }
     return results;
@@ -162,6 +163,77 @@ export class GoogleWebProvider {
         cause: error
       });
     }
+  }
+
+  private translateSingle(text: string, request: TranslateRequest): Promise<string> {
+    return this.candidate === 'gtx'
+      ? this.translateWithGtx(text, request)
+      : this.translateWithMobile(text, request);
+  }
+
+  private async translateWithGtx(text: string, request: TranslateRequest): Promise<string> {
+    const url = new URL('/translate_a/single', this.baseUrl);
+    url.searchParams.set('client', 'gtx');
+    url.searchParams.set('sl', request.sourceLanguage);
+    url.searchParams.set('tl', request.targetLanguage);
+    url.searchParams.set('dt', 't');
+    url.searchParams.set('ie', 'UTF-8');
+    url.searchParams.set('oe', 'UTF-8');
+
+    const cookie = await this.getCookie(request.abortSignal);
+    const body = await this.fetchText(url, 'gtx', {
+      method: 'POST',
+      signal: request.abortSignal,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        ...(cookie ? { Cookie: cookie } : {})
+      },
+      body: new URLSearchParams({ q: text }).toString()
+    });
+    try {
+      return parseGtxTranslation(body);
+    } catch (error) {
+      throw new TranslationProviderError('Failed to parse Google gtx translation response.', {
+        code: 'PARSE',
+        candidate: 'gtx',
+        cause: error
+      });
+    }
+  }
+
+  // Google answers cookie-less translate_a/single requests with 429, so fetch the NID
+  // cookie from the homepage once per provider and reuse it for every request.
+  private getCookie(abortSignal: AbortSignal | undefined): Promise<string> {
+    if (!this.cookie) {
+      this.cookie = this.fetchCookie(abortSignal).catch((error: unknown) => {
+        this.cookie = undefined;
+        throw error;
+      });
+    }
+    return this.cookie;
+  }
+
+  private async fetchCookie(abortSignal: AbortSignal | undefined): Promise<string> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(new URL('/', this.baseUrl), { redirect: 'manual', signal: abortSignal });
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw createAbortError();
+      }
+      throw new TranslationProviderError('Google Web cookie request failed.', {
+        code: 'NETWORK',
+        candidate: 'gtx',
+        cause: error
+      });
+    }
+
+    const setCookies = typeof response.headers.getSetCookie === 'function'
+      ? response.headers.getSetCookie()
+      : [response.headers.get('set-cookie') ?? ''];
+    const cookie = setCookies.map((value) => value.split(';')[0].trim()).filter(Boolean).join('; ');
+    this.log?.(`Google gtx cookie response: HTTP ${response.status}, ${cookie ? 'cookie received' : 'no cookie'}`);
+    return cookie;
   }
 
   private async translateWithRpc(text: string, request: TranslateRequest): Promise<string> {
@@ -256,6 +328,23 @@ export function parseMobileTranslation(html: string): string {
   }
 
   return decodeHtml(stripHtml(match[1]).trim());
+}
+
+export function parseGtxTranslation(text: string): string {
+  const payload: unknown = JSON.parse(text);
+  const segments = Array.isArray(payload) ? payload[0] : undefined;
+  if (!Array.isArray(segments)) {
+    throw new Error('Missing translation segments.');
+  }
+
+  const translatedText = segments
+    .map((segment: unknown) => (Array.isArray(segment) && typeof segment[0] === 'string' ? segment[0] : ''))
+    .join('');
+  if (!translatedText) {
+    throw new Error('Missing translated text.');
+  }
+
+  return translatedText;
 }
 
 export function parseRpcTranslation(text: string): string {

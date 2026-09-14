@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   GoogleWebProvider,
   TranslationProviderError,
+  parseGtxTranslation,
   parseMobileTranslation,
   parseRpcTranslation
 } from '../src/translation/googleWebProvider';
@@ -19,6 +20,19 @@ describe('Google Web provider parsing', () => {
     const response = `)]}'\n\n${outer}\n`;
 
     expect(parseRpcTranslation(response)).toBe('长夜将至');
+  });
+
+  it('joins the translated segments from a translate_a/single response', () => {
+    const response = JSON.stringify([
+      [
+        ['长夜将至', 'Night gathers', null, null, 3],
+        ['，守望开始', ', my watch begins', null, null, 3]
+      ],
+      null,
+      'en'
+    ]);
+
+    expect(parseGtxTranslation(response)).toBe('长夜将至，守望开始');
   });
 });
 
@@ -127,6 +141,105 @@ describe('GoogleWebProvider', () => {
     })).rejects.toMatchObject({
       code: 'RATE_LIMIT',
       candidate: 'mobile'
+    } satisfies Partial<TranslationProviderError>);
+  });
+});
+
+describe('GoogleWebProvider gtx candidate', () => {
+  const nidCookie = 'NID=abc123; expires=Tue, 16-Mar-2027 08:27:59 GMT; path=/; domain=.google.com; Secure; HttpOnly';
+
+  function createGtxFetchMock(translate: (text: string) => Response) {
+    return vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = input instanceof URL ? input : new URL(input);
+      if (url.pathname === '/') {
+        return new Response('', { status: 200, headers: { 'Set-Cookie': nidCookie } });
+      }
+      return translate(new URLSearchParams(String(init?.body)).get('q') ?? '');
+    });
+  }
+
+  function gtxResponse(translatedText: string): Response {
+    return new Response(JSON.stringify([[[translatedText, 'source', null, null, 3]], null, 'en']), { status: 200 });
+  }
+
+  it('fetches a Google cookie before posting the text to translate_a/single', async () => {
+    const fetchMock = createGtxFetchMock(() => gtxResponse('长夜将至'));
+    const provider = new GoogleWebProvider({ fetch: fetchMock, candidate: 'gtx' });
+
+    const results = await provider.translate({
+      sourceLanguage: 'en',
+      targetLanguage: 'zh-CN',
+      texts: [{ id: 'p1', text: 'Night gathers' }]
+    });
+
+    expect(results).toEqual([{ id: 'p1', translatedText: '长夜将至' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [translateInput, translateInit] = fetchMock.mock.calls[1];
+    const translateUrl = translateInput as URL;
+    expect(translateUrl.pathname).toBe('/translate_a/single');
+    expect(translateUrl.searchParams.get('client')).toBe('gtx');
+    expect(translateUrl.searchParams.get('sl')).toBe('en');
+    expect(translateUrl.searchParams.get('tl')).toBe('zh-CN');
+    expect(translateInit?.method).toBe('POST');
+    expect(new Headers(translateInit?.headers).get('Cookie')).toBe('NID=abc123');
+    expect(new URLSearchParams(String(translateInit?.body)).get('q')).toBe('Night gathers');
+  });
+
+  it('batches multiple gtx translations into one request and splits the result by marker', async () => {
+    const fetchMock = createGtxFetchMock(() => gtxResponse('长夜将至\n<<<MD_TRANSLATOR_BLOCK_0>>>\n守望开始'));
+    const provider = new GoogleWebProvider({ fetch: fetchMock, candidate: 'gtx' });
+
+    const results = await provider.translate({
+      sourceLanguage: 'en',
+      targetLanguage: 'zh-CN',
+      texts: [
+        { id: 'p1', text: 'Night gathers' },
+        { id: 'p2', text: 'My watch begins' }
+      ]
+    });
+
+    expect(results).toEqual([
+      { id: 'p1', translatedText: '长夜将至' },
+      { id: 'p2', translatedText: '守望开始' }
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URLSearchParams(String(fetchMock.mock.calls[1][1]?.body)).get('q'))
+      .toBe('Night gathers\n<<<MD_TRANSLATOR_BLOCK_0>>>\nMy watch begins');
+  });
+
+  it('reuses the Google cookie across gtx batch requests', async () => {
+    const fetchMock = createGtxFetchMock((text) => gtxResponse(text === 'Night gathers' ? '长夜将至' : '守望开始'));
+    const provider = new GoogleWebProvider({ fetch: fetchMock, candidate: 'gtx', maxBatchCharacters: 20 });
+
+    const results = await provider.translate({
+      sourceLanguage: 'en',
+      targetLanguage: 'zh-CN',
+      texts: [
+        { id: 'p1', text: 'Night gathers' },
+        { id: 'p2', text: 'My watch begins' }
+      ]
+    });
+
+    expect(results).toEqual([
+      { id: 'p1', translatedText: '长夜将至' },
+      { id: 'p2', translatedText: '守望开始' }
+    ]);
+    const cookieRequests = fetchMock.mock.calls.filter(([input]) => (input as URL).pathname === '/');
+    expect(cookieRequests).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('classifies gtx 429 responses as rate limit errors', async () => {
+    const fetchMock = createGtxFetchMock(() => new Response('too many requests', { status: 429 }));
+    const provider = new GoogleWebProvider({ fetch: fetchMock, candidate: 'gtx' });
+
+    await expect(provider.translate({
+      sourceLanguage: 'en',
+      targetLanguage: 'zh-CN',
+      texts: [{ id: 'p1', text: 'Night gathers' }]
+    })).rejects.toMatchObject({
+      code: 'RATE_LIMIT',
+      candidate: 'gtx'
     } satisfies Partial<TranslationProviderError>);
   });
 });
